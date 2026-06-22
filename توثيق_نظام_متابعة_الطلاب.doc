@@ -1,0 +1,117 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
+<style>
+body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; padding: 30px; line-height: 1.7; }
+h1 { color: #1e3a5f; font-size: 26px; border-bottom: 3px solid #2d5a87; padding-bottom: 10px; text-align: center; }
+h2 { color: #1e3a5f; font-size: 20px; margin-top: 30px; border-right: 5px solid #2d5a87; padding-right: 12px; }
+h3 { color: #2d5a87; font-size: 16px; margin-top: 20px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+th { background: #1e3a5f; color: white; padding: 8px 10px; text-align: center; border: 1px solid #1e3a5f; }
+td { padding: 6px 10px; border: 1px solid #94a3b8; text-align: center; }
+.highlight { background: #f0f4f8; padding: 15px; border-right: 4px solid #2d5a87; margin: 15px 0; }
+ul { line-height: 2; }
+code { background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>📚 نظام متابعة الطلاب</h1>
+<p style="text-align:center;color:#64748b;font-size:14px;">نظام إلكتروني لمتابعة أداء الطلاب - إعداد: المبرمج/ محمد رائد</p>
+
+<h2>1. نظرة عامة</h2>
+<div class="highlight">
+<p>نظام متابعة الطلاب هو تطبيق ويب متكامل (صفحة HTML واحدة) يعمل بالكامل في المتصفح، مصمم لمساعدة المعلمين على تتبع حضور الطلاب، سلوكهم، انضباطهم، إحضارهم للكتاب، أدائهم للواجبات، وتسجيل الملاحظات اليومية. يعتمد على التخزين المحلي <code>localStorage</code> ويدعم المزامنة مع Google Drive.</p>
+</div>
+
+<h2>2. الميزات الرئيسية</h2>
+<table>
+<tr><th>#</th><th>الميزة</th><th>الوصف</th></tr>
+<tr><td>1</td><td>إدارة الصفوف والشعب</td><td>إضافة/حذف الصفوف (مستويات) وتحديد عدد الشعب لكل صف</td></tr>
+<tr><td>2</td><td>إدارة الطلاب</td><td>إضافة، نقل، حذف، واستيراد الطلاب من Excel</td></tr>
+<tr><td>3</td><td>تسجيل الحضور</td><td>تسجيل حضور/غياب/تأخر لكل طالب في كل جلسة</td></tr>
+<tr><td>4</td><td>تقييم السلوك</td><td>تقييم السلوك والانضباط من 1 إلى 5</td></tr>
+<tr><td>5</td><td>متابعة الكتاب والواجب</td><td>تسجيل إحضار الكتاب وأداء الواجب</td></tr>
+<tr><td>6</td><td>ملاحظات</td><td>إضافة ملاحظات نصية لكل طالب لكل جلسة</td></tr>
+<tr><td>7</td><td>الجلسات</td><td>حفظ الجلسات حسب التاريخ ورقم الحصة، واسترجاعها لاحقاً</td></tr>
+<tr><td>8</td><td>الجدول الأسبوعي</td><td>إدارة الجدول الدراسي والانتقال السريع بين الحصص</td></tr>
+<tr><td>9</td><td>التقارير</td><td>تقارير مفصلة: الحضور، السلوك والانضباط، الكتاب والواجب</td></tr>
+<tr><td>10</td><td>طباعة</td><td>طباعة تقرير شعبة كامل بالتنسيق المناسب</td></tr>
+<tr><td>11</td><td>تصدير Excel</td><td>تصدير جميع البيانات إلى ملف Excel</td></tr>
+<tr><td>12</td><td>مزامنة Google Drive</td><td>حفظ واسترجاع البيانات من Google Drive</td></tr>
+</table>
+
+<h2>3. شرح التبويبات</h2>
+
+<h3>3.1 تبويبات المستويات (الصفوف)</h3>
+<p>تظهر في أعلى الصفحة، وتمثل الصفوف (مثل: التاسع، العاشر، الحادي عشر الأكاديمي). بجانب كل صف يظهر عدد طلابه. عند النقر على صف، تظهر شعب هذا الصف أسفلها.</p>
+
+<h3>3.2 تبويب جدولي 📋</h3>
+<p>يعرض الجدول الأسبوعي للحصص. يمكن إضافة أو حذف الحصص من الجدول. النقر على حصة في الجدول ينتقل مباشرة إلى تلك الشعبة في التاريخ والوقت المناسبين.</p>
+
+<h3>3.3 تبويب التقارير 📊</h3>
+<p>يوفر ثلاث تقارير رئيسية:</p>
+<ul>
+<li><strong>ملخص الحضور:</strong> عدد جلسات الحضور، الغياب، والتأخر لكل طالب مع نسبة الحضور ملونة (أخضر ≥ 90%، أصفر ≥ 75%، أحمر &lt; 75%)</li>
+<li><strong>السلوك والانضباط:</strong> متوسط السلوك والانضباط من 1-5 لكل طالب</li>
+<li><strong>الكتاب والواجب:</strong> عدد مرات إحضار الكتاب وأداء الواجب مع النسبة المئوية</li>
+</ul>
+<p>يمكن تصفية التقارير حسب <strong>المستوى → الشعبة → طالب محدد</strong>. عند اختيار طالب محدد، يظهر تقرير تفصيلي يشمل بطاقات إحصائية وجدول بكل الجلسات.</p>
+
+<h3>3.4 تبويب الإعدادات ⚙️</h3>
+<ul>
+<li>معلومات عامة: اسم المعلم، المدرسة، المديرية، السنة الدراسية، الفصل</li>
+<li>إدارة الصفوف: إضافة/حذف الصفوف وتحديد عدد الشعب (أ، ب، ج، ...)</li>
+<li>مزامنة Google Drive: ربط بحساب Google لحفظ البيانات واسترجاعها</li>
+</ul>
+
+<h2>4. هيكل البيانات</h2>
+<p>يستخدم النظام <code>localStorage</code> لتخزين ثلاث مجموعات بيانات:</p>
+<table>
+<tr><th>المفتاح</th><th>البيانات</th></tr>
+<tr><td>studentTrackerData</td><td>قائمة الطلاب (الاسم، المستوى، الشعبة، معرّف)</td></tr>
+<tr><td>studentTrackerConfig</td><td>الإعدادات: اسم المعلم، المدرسة، الصفوف، الجدول، إلخ</td></tr>
+<tr><td>studentSessions</td><td>جلسات الحضور: مفتاح ← تاريخ_حصة_مستوى_شعبة ← سجلات الطلاب</td></tr>
+</table>
+
+<h2>5. الجلسات</h2>
+<p>كل جلسة هي مجموعة بيانات ليوم وتاريخ محددين. لكل جلسة يمكن تسجيل:</p>
+<ul>
+<li><strong>الحضور:</strong> حاضر ✓ / غائب ✗ / متأخر ◷</li>
+<li><strong>السلوك:</strong> رقم من 1 إلى 5</li>
+<li><strong>الانضباط:</strong> رقم من 1 إلى 5</li>
+<li><strong>الكتاب:</strong> نعم ✓ / لا ✗</li>
+<li><strong>الواجب:</strong> نعم ✓ / لا ✗</li>
+<li><strong>ملاحظات:</strong> نص حر</li>
+</ul>
+<p>يمكن حفظ الجلسات باسم التاريخ + رقم الحصة، ثم تحميلها لاحقاً لتعديلها أو الاطلاع عليها.</p>
+
+<h2>6. النشر على GitHub Pages</h2>
+<p>النظام منشور ويعمل على الرابط:</p>
+<p style="text-align:center;font-size:16px;font-weight:700;"><a href="https://mraed1987-png.github.io/students-control/">https://mraed1987-png.github.io/students-control/</a></p>
+<p>ملف <code>index.html</code> هو الأساسي. الملف الآخر <code>متابعة الطلاب.html</code> نسخة احتياطية مطابقة.</p>
+
+<h2>7. طريقة الاستخدام الأساسية</h2>
+<ol>
+<li><strong>الإعدادات:</strong> أدخل اسم المعلم والمدرسة من تبويب الإعدادات ⚙️</li>
+<li><strong>إضافة صفوف:</strong> أضف صفوفك الدراسية (مثال: التاسع، العاشر) مع تحديد عدد الشعب</li>
+<li><strong>إضافة طلاب:</strong> أضف الطلاب فردياً أو استوردهم من Excel</li>
+<li><strong>تسجيل الحضور:</strong> اختر التاريخ ورقم الحصة، ثم سجل حضور وغياب الطلاب</li>
+<li><strong>حفظ الجلسة:</strong> اضغط "حفظ الجلسة" لحفظ بيانات اليوم</li>
+<li><strong>التقارير:</strong> راجع تقارير الحضور والسلوك في تبويب التقارير 📊</li>
+</ol>
+
+<h2>8. ملاحظات تقنية</h2>
+<ul>
+<li>التطبيق لا يحتاج إلى خادم (server) - يعمل محلياً في المتصفح</li>
+<li>البيانات محفوظة في <code>localStorage</code> ولا تُفقد عند إغلاق المتصفح</li>
+<li>يمكن مسح البيانات بالكامل عبر زر "تفريغ"</li>
+<li>التقارير مبنية على جميع الجلسات المحفوظة</li>
+<li>لزيادة الأمان، يُنصح بعمل نسخ احتياطية دورية عبر Google Drive</li>
+</ul>
+
+<p style="text-align:center;color:#94a3b8;margin-top:50px;font-size:12px;">آخر تحديث: يونيو 2026</p>
+
+</body>
+</html>

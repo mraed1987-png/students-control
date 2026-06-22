@@ -1,0 +1,2040 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>متابعة الطلاب</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  background: #f0f4f8;
+  color: #1e293b;
+  padding: 20px;
+  min-height: 100vh;
+}
+.container { max-width: 1300px; margin: 0 auto; }
+header {
+  background: linear-gradient(135deg, #1e3a5f, #2d5a87);
+  color: white;
+  padding: 20px 25px;
+  border-radius: 16px;
+  margin-bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+header h1 { font-size: 24px; font-weight: 700; }
+.header-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.btn-primary { background: #ffd700; color: #1e3a5f; }
+.btn-primary:hover { background: #ffed4a; transform: translateY(-1px); }
+.btn-danger { background: #ef4444; color: white; }
+.btn-danger:hover { background: #dc2626; }
+.btn-success { background: #10b981; color: white; }
+.btn-success:hover { background: #059669; }
+.btn-secondary { background: #475569; color: white; }
+.btn-secondary:hover { background: #334155; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+
+.tabs-wrap {
+  background: white;
+  border-radius: 0 0 14px 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.level-tabs {
+  display: flex;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+.level-tab {
+  padding: 14px 28px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-family: inherit;
+  position: relative;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+}
+.level-tab:hover { color: #1e3a5f; background: #e8edf5; }
+.level-tab.active { color: #1e3a5f; background: white; border-bottom-color: #2d5a87; }
+.level-tab .badge {
+  display: inline-block;
+  background: #cbd5e1;
+  color: #475569;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  margin-right: 6px;
+  font-weight: 600;
+}
+.level-tab.active .badge { background: #2d5a87; color: white; }
+
+.section-tabs {
+  display: flex;
+  padding: 10px 16px;
+  gap: 6px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+}
+.section-tab {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  border: 2px solid #e2e8f0;
+  background: white;
+  color: #64748b;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.section-tab:hover { border-color: #94a3b8; color: #1e293b; }
+.section-tab.active { border-color: #2d5a87; background: #eff6ff; color: #1e3a5f; }
+.section-tab .count {
+  display: inline-block;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-right: 4px;
+}
+
+.toolbar {
+  background: white;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.search-box {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.search-box input, .search-box select {
+  padding: 8px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: white;
+  transition: border-color 0.2s;
+}
+.search-box input:focus, .search-box select:focus {
+  outline: none;
+  border-color: #2d5a87;
+}
+.stats {
+  display: flex;
+  gap: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+.stat-item { display: flex; align-items: center; gap: 4px; }
+.stat-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.stat-dot.green { background: #10b981; }
+.stat-dot.yellow { background: #f59e0b; }
+.stat-dot.red { background: #ef4444; }
+
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 780px;
+}
+th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 12px 10px;
+  text-align: center;
+  border-bottom: 3px solid #e2e8f0;
+  white-space: nowrap;
+}
+td {
+  padding: 8px 6px;
+  text-align: center;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
+  vertical-align: middle;
+}
+tr:hover td { background: #f8fafc; }
+tr.absent td { background: #fef2f2; }
+tr.absent:hover td { background: #fee2e2; }
+
+.student-name-input {
+  width: 100%;
+  min-width: 110px;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: right;
+  padding: 4px;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+.student-name-input:focus {
+  outline: none;
+  border-bottom-color: #2d5a87;
+}
+
+.attendance-btns { display: flex; gap: 3px; justify-content: center; }
+.att-btn {
+  width: 32px; height: 32px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s;
+  background: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.att-btn:hover { transform: scale(1.1); }
+.att-btn.present { background: #d1fae5; border-color: #10b981; }
+.att-btn.absent { background: #fee2e2; border-color: #ef4444; }
+.att-btn.late { background: #fef3c7; border-color: #f59e0b; }
+.att-btn.muted { opacity: 0.4; }
+.att-btn.muted:hover { opacity: 0.8; }
+
+.grade-input, .behavior-input, .hw-input {
+  width: 60px;
+  padding: 5px 4px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.grade-input:focus, .behavior-input:focus, .hw-input:focus {
+  outline: none;
+  border-color: #2d5a87;
+}
+
+.notes-input {
+  width: 110px;
+  padding: 5px 6px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  text-align: right;
+  transition: border-color 0.2s;
+}
+.notes-input:focus {
+  outline: none;
+  border-color: #2d5a87;
+}
+
+.action-btns { display: flex; gap: 3px; justify-content: center; }
+.action-btns .btn { padding: 4px 8px; font-size: 11px; border-radius: 5px; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: white;
+  padding: 28px;
+  border-radius: 18px;
+  width: 90%;
+  max-width: 550px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.modal h2 { margin-bottom: 18px; color: #1e3a5f; font-size: 20px; }
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 5px;
+  font-size: 13px;
+  color: #475569;
+}
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+  outline: none;
+  border-color: #2d5a87;
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-btns { display: flex; gap: 8px; justify-content: flex-start; margin-top: 16px; }
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 2000;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+.toast.success { background: #059669; }
+.toast.error { background: #dc2626; }
+
+.empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  color: #94a3b8;
+}
+.empty-state p { font-size: 16px; margin-top: 8px; }
+
+.settings-panel {
+  padding: 24px;
+}
+.settings-section {
+  margin-bottom: 24px;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+}
+.settings-section h3 {
+  font-size: 16px;
+  color: #1e3a5f;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.settings-grid .form-group { margin-bottom: 0; }
+
+.level-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.2s;
+}
+.level-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.level-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.level-card-header h4 {
+  font-size: 15px;
+  color: #1e293b;
+  font-weight: 700;
+}
+.section-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.section-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  color: #1e3a5f;
+  font-weight: 600;
+}
+.section-chip .remove-sec {
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1;
+  margin-right: 2px;
+}
+.section-chip .remove-sec:hover { color: #ef4444; }
+.add-section-form {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.add-section-form input {
+  width: 40px;
+  padding: 4px 6px;
+  border: 2px solid #e2e8f0;
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: inherit;
+  text-align: center;
+}
+.add-section-form input:focus { outline: none; border-color: #2d5a87; }
+.add-section-form button {
+  background: #2d5a87;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+}
+.add-section-form button:hover { background: #1e3a5f; }
+
+.add-level-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.add-level-form input {
+  padding: 8px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  flex: 1;
+  min-width: 140px;
+}
+.add-level-form input:focus { outline: none; border-color: #2d5a87; }
+
+.settings-tab {
+  margin-right: auto !important;
+  font-size: 20px !important;
+  padding: 14px 20px !important;
+}
+.settings-tab:hover { background: #e8edf5 !important; }
+
+.schedule-view {
+  padding: 20px;
+}
+.schedule-view h2 {
+  font-size: 18px;
+  color: #1e3a5f;
+  margin-bottom: 16px;
+}
+.sched-grid {
+  display: grid;
+  grid-template-columns: 80px repeat(7, 1fr);
+  gap: 1px;
+  background: #e2e8f0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.sched-header {
+  background: #1e3a5f;
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 6px;
+  text-align: center;
+}
+.sched-day {
+  background: #f1f5f9;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 6px;
+  text-align: center;
+  color: #1e293b;
+}
+.sched-cell {
+  background: white;
+  padding: 8px 4px;
+  text-align: center;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+.sched-cell.free {
+  color: #94a3b8;
+  font-size: 12px;
+}
+.sched-cell.class-cell {
+  cursor: pointer;
+  font-weight: 700;
+  color: #1e3a5f;
+  transition: background 0.15s;
+}
+.sched-cell.class-cell:hover {
+  background: #eff6ff;
+  text-decoration: underline;
+}
+.sched-cell.today {
+  background: #fef9c3;
+}
+.sched-cell.class-cell.today:hover {
+  background: #fef08a;
+}
+
+.reports-container { padding: 20px; }
+.reports-filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 20px; background: white; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+.reports-filters .form-group { margin-bottom: 0; }
+.reports-filters select, .reports-filters .form-group select { padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; background: white; }
+.reports-grid { display: flex; flex-direction: column; gap: 20px; }
+.report-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; overflow-x: auto; }
+.report-card h3 { font-size: 16px; color: #1e3a5f; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.report-table th { background: #f8fafc; color: #475569; font-weight: 700; padding: 10px 8px; text-align: center; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+.report-table td { padding: 8px 6px; text-align: center; border-bottom: 1px solid #f1f5f9; }
+.report-table tbody tr:hover td { background: #f8fafc; }
+
+@media (max-width: 768px) {
+  .settings-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  body { padding: 10px; }
+  header { padding: 14px; }
+  header h1 { font-size: 18px; }
+  .level-tab { padding: 10px 14px; font-size: 13px; }
+  .section-tab { padding: 6px 12px; font-size: 12px; }
+  td, th { padding: 6px 4px; font-size: 12px; }
+  .grade-input, .behavior-input, .hw-input { width: 48px; }
+  .notes-input { width: 80px; }
+}
+@media print {
+  @page { size: A4; margin: 1cm; }
+  body { background: white; }
+  .container, .toast, .modal-overlay { display: none !important; }
+  #printArea { display: block; direction: rtl; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  #printArea h2 { font-size: 16px; margin: 0 0 6px; color: #1e3a5f; text-align: center; }
+  #printArea h3 { font-size: 13px; margin: 0 0 4px; color: #475569; text-align: center; font-weight: 400; }
+  #printArea .print-meta { font-size: 10px; color: #64748b; margin-bottom: 6px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; }
+  #printArea .print-header { margin-bottom: 6px; }
+  #printArea table { width: 100%; border-collapse: collapse; font-size: 9px; }
+  #printArea thead { display: table-header-group; }
+  #printArea th { background: #1e3a5f; color: white; padding: 4px 2px; text-align: center; font-size: 9px; }
+  #printArea td { border: 1px solid #94a3b8; padding: 3px 2px; text-align: center; word-break: break-all; }
+  #printArea tbody tr { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>📚 متابعة الطلاب</h1>
+    <div class="header-btns">
+      <button class="btn btn-primary" onclick="showAddModal()">+ إضافة طالب</button>
+      <button class="btn btn-success" onclick="showImportModal()">📥 استيراد</button>
+      <button class="btn btn-secondary" onclick="exportCSV()">📤 Excel</button>
+      <button class="btn btn-danger" onclick="clearAll()">🗑️ تفريغ</button>
+    </div>
+  </header>
+
+  <div class="tabs-wrap">
+    <div class="level-tabs" id="levelTabs"></div>
+    <div class="section-tabs" id="sectionTabs"></div>
+    <div class="toolbar" id="toolbar" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <button class="btn btn-success" onclick="saveSession()" style="font-size:12px;padding:6px 14px;">💾 حفظ الجلسة</button>
+        <span style="font-size:13px;color:#475569;">التاريخ:</span>
+        <input type="date" id="sessDate" onchange="currentSessDate=this.value;populateSessLoad();renderTable();" style="padding:6px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">
+        <span style="font-size:13px;color:#475569;">الحصة:</span>
+        <input type="number" id="sessPeriod" value="1" min="1" max="7" onchange="currentPeriod=parseInt(this.value)||1;populateSessLoad();renderTable();" style="width:55px;padding:6px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;text-align:center;">
+        <select id="sessLoad" style="padding:6px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;" onchange="loadSession(this.value)">
+          <option value="">📂 تحميل جلسة...</option>
+        </select>
+        <button class="btn btn-sm" style="background:#6366f1;color:white;padding:6px 14px;font-size:12px" onclick="printSection(currentSection)">🖨️ طباعة الشعبة</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="🔍 بحث بالاسم..." oninput="renderTable()">
+        </div>
+        <div class="stats" id="stats"></div>
+      </div>
+    </div>
+    <div class="table-wrap" id="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px">#</th>
+            <th style="text-align:right">اسم الطالب</th>
+            <th style="width:100px">الحضور</th>
+            <th style="width:90px">السلوك (1-5)</th>
+            <th style="width:90px">الانضباط (1-5)</th>
+            <th style="width:60px">الكتاب</th>
+            <th style="width:60px">الواجب</th>
+            <th style="width:100px">ملاحظات</th>
+            <th style="width:60px">إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none">
+        <p style="font-size:40px;margin-bottom:6px">📋</p>
+        <p>لا يوجد طلاب في هذه الشعبة.</p>
+      </div>
+    </div>
+
+    <div class="schedule-view" id="scheduleView" style="display:none"></div>
+
+    <div class="reports-container" id="reportsView" style="display:none"></div>
+
+    <div class="settings-panel" id="settingsPanel" style="display:none">
+      <div class="settings-section">
+        <h3>📋 معلومات عامة</h3>
+        <div class="settings-grid">
+          <div class="form-group">
+            <label>اسم المعلم</label>
+            <input type="text" id="cfgTeacher" onchange="saveSettings()" placeholder="أدخل اسم المعلم">
+          </div>
+          <div class="form-group">
+            <label>اسم المدرسة</label>
+            <input type="text" id="cfgSchool" onchange="saveSettings()" placeholder="أدخل اسم المدرسة">
+          </div>
+          <div class="form-group">
+            <label>المديرية التابعة لها</label>
+            <input type="text" id="cfgDirectorate" onchange="saveSettings()" placeholder="أدخل اسم المديرية">
+          </div>
+          <div class="form-group">
+            <label>السنة الدراسية</label>
+            <input type="text" id="cfgYear" onchange="saveSettings()" placeholder="مثال: 2025-2026">
+          </div>
+          <div class="form-group">
+            <label>الفصل الدراسي</label>
+            <select id="cfgSemester" onchange="saveSettings()">
+              <option value="الأول">الأول</option>
+              <option value="الثاني">الثاني</option>
+              <option value="الثالث">الثالث</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>📂 إدارة الصفوف وتحديد عدد الشعب</h3>
+        <div id="levelsManager"></div>
+        <div class="add-level-form">
+          <input type="text" id="newLevelInput" placeholder="اسم الصف (مثال: التاسع)">
+          <input type="number" id="newLevelSections" value="3" min="1" max="15" style="width:60px">
+          <span style="font-size:13px;color:#475569;">شعبة</span>
+          <button class="btn btn-primary" onclick="addLevel()">+ إضافة صف</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>☁️ مزامنة Google Drive</h3>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
+          <div class="form-group">
+            <label>معرف OAuth Client ID <span style="font-weight:400;color:#94a3b8;">(من Google Cloud Console)</span></label>
+            <input type="text" id="cfgDriveClientId" onchange="saveSettings()" placeholder="...apps.googleusercontent.com" style="direction:ltr;text-align:left;font-family:monospace;font-size:12px">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-primary" id="driveLoginBtn" onclick="driveLogin()" style="display:none">🔗 تسجيل الدخول</button>
+            <button class="btn btn-secondary" id="driveLogoutBtn" onclick="driveLogout()" style="display:none">🔓 تسجيل الخروج</button>
+            <span id="driveStatus" style="font-size:13px;color:#64748b"></span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-success" onclick="saveToDrive()">☁️ حفظ إلى Drive</button>
+            <button class="btn btn-secondary" onclick="loadFromDrive()">📥 تحميل من Drive</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="importModal">
+  <div class="modal" style="max-width:600px">
+    <h2>📥 استيراد طلاب</h2>
+    <p style="color:#64748b;margin-bottom:14px;font-size:13px;">
+      انسخ البيانات من Excel والصقها. كل طالب في سطر، ويفصل بين الحقول بـ <strong>Tab</strong> أو <strong>فاصلة</strong>.
+    </p>
+    <div class="form-group">
+      <label>المستوى <span style="font-weight:400;color:#94a3b8;">(سيتم تعيينه للطلاب المستوردين)</span></label>
+      <select id="importLevel"></select>
+    </div>
+    <div class="form-group">
+      <label>بيانات الطلاب <span style="font-weight:400;color:#94a3b8;">(الاسم - الشعبة - [المستوى اختياري])</span></label>
+      <textarea id="importData" rows="10" placeholder="أحمد محمد	أ
+سامر علي	ب	العاشر
+ليلى حسن	أ	التاسع
+..."></textarea>
+    </div>
+    <div style="background:#f8fafc;padding:12px 14px;border-radius:8px;margin-bottom:8px;font-size:12px;color:#475569;">
+      <strong style="color:#1e293b">الطريقة:</strong> حدد الأعمدة (الاسم - الشعبة - مستوى) في Excel، انسخ، والصق هنا. المستوى اختياري، يحذف تلقائياً عند عدم وجوده.
+    </div>
+    <div class="form-btns" style="justify-content:space-between">
+      <div>
+        <button class="btn btn-success" onclick="importStudents()">استيراد</button>
+        <button class="btn btn-secondary" onclick="closeImportModal()">إلغاء</button>
+      </div>
+      <button class="btn btn-sm" style="background:#f1f5f9;color:#64748b" onclick="document.getElementById('importData').value=''">مسح</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <h2>➕ إضافة طالب جديد</h2>
+    <div class="form-group">
+      <label>اسم الطالب</label>
+      <input type="text" id="newStudentName" placeholder="أدخل اسم الطالب">
+    </div>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1">
+        <label>المستوى</label>
+        <select id="newStudentLevel">
+          <option value="التاسع">التاسع</option>
+          <option value="العاشر">العاشر</option>
+          <option value="الحادي عشر الأكاديمي">الحادي عشر الأكاديمي</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>الشعبة</label>
+        <select id="newStudentSection">
+          <option value="أ">أ</option>
+          <option value="ب">ب</option>
+          <option value="ج">ج</option>
+          <option value="د">د</option>
+          <option value="هـ">هـ</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>عدد الطلاب المكرر</label>
+      <input type="number" id="newStudentCount" value="1" min="1" max="50" style="width:70px">
+      <span style="font-size:12px;color:#64748b;margin-right:6px;">(لإضافة عدة طلاب بنفس الاسم)</span>
+    </div>
+    <div class="form-btns">
+      <button class="btn btn-primary" onclick="addStudent()">إضافة</button>
+      <button class="btn btn-secondary" onclick="closeModal('addModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="moveModal">
+  <div class="modal">
+    <h2>🚚 نقل طالب</h2>
+    <p id="moveStudentName" style="color:#475569;margin-bottom:14px;font-size:14px;"></p>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1">
+        <label>المستوى الجديد</label>
+        <select id="moveLevel" onchange="updateMoveSections()"></select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>الشعبة الجديدة</label>
+        <select id="moveSection"></select>
+      </div>
+    </div>
+    <div class="form-btns">
+      <button class="btn btn-primary" onclick="moveStudent()">نقل</button>
+      <button class="btn btn-secondary" onclick="closeModal('moveModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const STORAGE_KEY = 'studentTrackerData';
+const CONFIG_KEY = 'studentTrackerConfig';
+const SESSIONS_KEY = 'studentSessions';
+
+const DEFAULT_LEVELS = { 'التاسع': ['أ','ب','ج','د','هـ'], 'العاشر': ['أ','ب','ج','د','هـ'], 'الحادي عشر الأكاديمي': ['أ','ب','ج','د'] };
+const DAYS = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس'];
+const LEV_MAP = { '9':'التاسع', '10':'العاشر', '11':'الحادي عشر الأكاديمي' };
+const REV_LEV = { 'التاسع':'9', 'العاشر':'10', 'الحادي عشر الأكاديمي':'11' };
+const DEFAULT_SCHEDULE = {
+  'الأحد':   { '2':'10هـ', '3':'11د', '5':'9د' },
+  'الإثنين': { '1':'9هـ', '3':'11أ', '4':'11ب' },
+  'الثلاثاء':{ '1':'10أ', '3':'10ب' },
+  'الأربعاء':{ '2':'9ب', '3':'9أ', '4':'11ج', '5':'10ج' },
+  'الخميس':  { '1':'10د', '3':'9ج' }
+};
+
+let students = [];
+let config = { teacherName: '', schoolName: '', directorate: '', academicYear: '', semester: '', levels: {}, schedule: {}, googleClientId: '', driveFileId: '' };
+let driveToken = null;
+let tokenClient = null;
+let sessions = {};
+let currentView = null;
+let currentSection = 'أ';
+let currentSessDate = '';
+let currentPeriod = 1;
+
+function sessKey(date, period, level, section) {
+  return date + '_' + period + '_' + level + '_' + section;
+}
+function todayStr() {
+  var d = new Date();
+  var y = d.getFullYear();
+  var m = ('0' + (d.getMonth() + 1)).slice(-2);
+  var day = ('0' + d.getDate()).slice(-2);
+  return y + '-' + m + '-' + day;
+}
+
+function getLevels() { return Object.keys(config.levels); }
+function getSections(level) { return config.levels[level] || []; }
+function ensureLevel(level) {
+  if (!config.levels[level]) { config.levels[level] = []; saveConfig(); }
+}
+function genSecNames(n) {
+  var letters = 'أبجدهوزحطيكلمنسعفصقرشتثخذضظغ';
+  var result = [];
+  for (var i = 0; i < n && i < letters.length; i++) result.push(letters[i]);
+  return result;
+}
+
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    if (raw) Object.assign(config, JSON.parse(raw));
+  } catch(e) {}
+}
+function saveConfig() { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }
+
+function loadSessions() {
+  try {
+    var raw = localStorage.getItem(SESSIONS_KEY);
+    if (raw) sessions = JSON.parse(raw);
+    else sessions = {};
+  } catch(e) { sessions = {}; }
+}
+function saveSessions() { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); }
+
+function loadData() {
+  loadConfig();
+  loadSessions();
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data) students = JSON.parse(data);
+  } catch(e) { students = []; }
+
+  if (!Object.keys(config.levels).length) {
+    const levelSet = new Set(students.map(s => s.level));
+    if (levelSet.size) {
+      levelSet.forEach(l => { config.levels[l] = []; });
+      students.forEach(s => { if (!config.levels[s.level].includes(s.section)) config.levels[s.level].push(s.section); });
+    } else {
+      config.levels = JSON.parse(JSON.stringify(DEFAULT_LEVELS));
+    }
+    saveConfig();
+  }
+
+  if (!Object.keys(config.schedule).length) {
+    config.schedule = JSON.parse(JSON.stringify(DEFAULT_SCHEDULE));
+    saveConfig();
+  }
+
+  const savedView = localStorage.getItem(STORAGE_KEY + '_view');
+  const savedSection = localStorage.getItem(STORAGE_KEY + '_section');
+  const levels = getLevels();
+  if (savedView === 'settings' || savedView === 'schedule' || savedView === 'reports') currentView = savedView;
+  else if (savedView && levels.includes(savedView)) currentView = savedView;
+  else currentView = levels.length ? levels[0] : 'settings';
+
+  currentSection = savedSection || (getSections(currentView).length ? getSections(currentView)[0] : 'أ');
+  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports') {
+    const secs = getSections(currentView);
+    if (!secs.includes(currentSection)) currentSection = secs.length ? secs[0] : 'أ';
+  }
+  currentSessDate = todayStr();
+  currentPeriod = 1;
+  saveData();
+}
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+  localStorage.setItem(STORAGE_KEY + '_view', currentView);
+  localStorage.setItem(STORAGE_KEY + '_section', currentSection);
+}
+
+function showToast(msg, type) {
+  if (!type) type = 'success';
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(function() { t.classList.remove('show'); }, 2200);
+}
+
+function safeStr(s) { return ('' + s).replace(/'/g, "\\'"); }
+
+function switchLevel(level) {
+  currentView = level;
+  const secs = getSections(level);
+  if (!secs.includes(currentSection)) currentSection = secs.length ? secs[0] : 'أ';
+  saveData();
+  renderAll();
+}
+
+function switchSection(section) {
+  currentSection = section;
+  saveData();
+  renderAll();
+}
+
+function switchToSettings() {
+  currentView = 'settings';
+  saveData();
+  renderAll();
+  loadSettingsForm();
+}
+
+function switchToSchedule() {
+  currentView = 'schedule';
+  saveData();
+  renderAll();
+}
+
+function goToClass(code, period) {
+  if (code === 'free' || !code) return;
+  var m = code.match(/^(\d+)(.+)$/);
+  if (!m) return;
+  var level = LEV_MAP[m[1]];
+  var section = m[2];
+  if (!level || !getSections(level).length) return;
+  currentView = level;
+  currentSection = getSections(level).includes(section) ? section : getSections(level)[0];
+  if (period) { currentPeriod = period; currentSessDate = todayStr(); }
+  saveData();
+  renderAll();
+}
+
+function renderAll() {
+  renderTabs();
+  var wrap = document.getElementById('tableWrap');
+  var panel = document.getElementById('settingsPanel');
+  var toolbar = document.getElementById('toolbar');
+  var secTabs = document.getElementById('sectionTabs');
+  var schedDiv = document.getElementById('scheduleView');
+  if (currentView === 'settings') {
+    var rptDiv = document.getElementById('reportsView');
+    if (rptDiv) rptDiv.style.display = 'none';
+    panel.style.display = '';
+    wrap.style.display = 'none';
+    toolbar.style.display = 'none';
+    secTabs.style.display = 'none';
+    if (schedDiv) schedDiv.style.display = 'none';
+    loadSettingsForm();
+  } else if (currentView === 'schedule') {
+    if (schedDiv) schedDiv.style.display = '';
+    var rptDiv = document.getElementById('reportsView');
+    if (rptDiv) rptDiv.style.display = 'none';
+    panel.style.display = 'none';
+    wrap.style.display = 'none';
+    toolbar.style.display = 'none';
+    secTabs.style.display = 'none';
+    renderSchedule();
+  } else if (currentView === 'reports') {
+    if (schedDiv) schedDiv.style.display = 'none';
+    var rptDiv = document.getElementById('reportsView');
+    if (rptDiv) rptDiv.style.display = '';
+    panel.style.display = 'none';
+    wrap.style.display = 'none';
+    toolbar.style.display = 'none';
+    secTabs.style.display = 'none';
+    renderReports();
+  } else {
+    if (schedDiv) schedDiv.style.display = 'none';
+    var rptDiv = document.getElementById('reportsView');
+    if (rptDiv) rptDiv.style.display = 'none';
+    panel.style.display = 'none';
+    wrap.style.display = '';
+    toolbar.style.display = '';
+    secTabs.style.display = '';
+    document.getElementById('sessDate').value = currentSessDate;
+    document.getElementById('sessPeriod').value = currentPeriod;
+    populateSessLoad();
+    renderTable();
+  }
+}
+
+function renderTabs() {
+  const levels = getLevels();
+  const levelContainer = document.getElementById('levelTabs');
+  levelContainer.innerHTML = levels.map(function(l) {
+    var count = students.filter(function(s) { return s.level === l; }).length;
+    return '<button class="level-tab' + (currentView === l ? ' active' : '') + '" onclick="switchLevel(\'' + safeStr(l) + '\')">' + l + ' <span class="badge">' + count + '</span></button>';
+  }).join('') +
+  '<button class="level-tab' + (currentView === 'schedule' ? ' active' : '') + '" onclick="switchToSchedule()">📋 جدولي</button>' +
+  '<button class="level-tab' + (currentView === 'reports' ? ' active' : '') + '" onclick="switchToReports()">📊 تقارير</button>' +
+  '<button class="level-tab settings-tab' + (currentView === 'settings' ? ' active' : '') + '" onclick="switchToSettings()">⚙️</button>';
+
+  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports') {
+    var secs = getSections(currentView);
+    document.getElementById('sectionTabs').innerHTML = secs.map(function(sec) {
+      var count = students.filter(function(s) { return s.level === currentView && s.section === sec; }).length;
+      return '<button class="section-tab' + (sec === currentSection ? ' active' : '') + '" onclick="switchSection(\'' + safeStr(sec) + '\')">شعبة ' + sec + ' <span class="count">(' + count + ')</span></button>';
+    }).join('');
+  }
+}
+
+function renderSchedule() {
+  var sched = config.schedule || {};
+  var maxP = 7;
+  var d = new Date().getDay();
+  var today = (d >= 0 && d <= 4) ? DAYS[d] : '';
+  var html = '<h2>📋 الجدول الأسبوعي</h2><div class="sched-grid">';
+  html += '<div class="sched-header">اليوم</div>';
+  for (var p = 1; p <= maxP; p++) html += '<div class="sched-header">ح' + p + '</div>';
+  DAYS.forEach(function(day) {
+    html += '<div class="sched-day' + (day === today ? ' today' : '') + '">' + day + '</div>';
+    for (var p2 = 1; p2 <= maxP; p2++) {
+      var val = (sched[day] || {})[p2];
+      if (val && val !== 'free') {
+        var cls = 'sched-cell class-cell' + (day === today ? ' today' : '');
+        html += '<div class="' + cls + '" onclick="goToClass(\'' + val + '\',' + p2 + ')">' + val + '</div>';
+      } else {
+        html += '<div class="sched-cell free">—</div>';
+      }
+    }
+  });
+  html += '</div>';
+  html += '<div style="margin-top:24px;padding:20px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">' +
+    '<h3 style="font-size:16px;color:#1e3a5f;margin-bottom:14px;">🗓️ تعديل الجدول</h3>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+      '<select id="schedDay" style="padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">' +
+        '<option value="الأحد">الأحد</option>' +
+        '<option value="الإثنين">الإثنين</option>' +
+        '<option value="الثلاثاء">الثلاثاء</option>' +
+        '<option value="الأربعاء">الأربعاء</option>' +
+        '<option value="الخميس">الخميس</option>' +
+      '</select>' +
+      '<input type="number" id="schedPeriod" value="1" min="1" max="7" style="width:55px;padding:8px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;text-align:center;">' +
+      '<span style="font-size:13px;color:#475569;">الحصة</span>' +
+      '<select id="schedLevel" style="padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;"></select>' +
+      '<select id="schedSection" style="padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;"></select>' +
+      '<button class="btn btn-primary" onclick="addScheduleEntry()">✓ إضافة</button>' +
+      '<button class="btn btn-danger btn-sm" onclick="removeScheduleEntry()">✕ حذف</button>' +
+    '</div>' +
+    '<div id="schedDisplay" style="font-size:13px;color:#475569;margin-top:12px;"></div>' +
+  '</div>';
+  document.getElementById('scheduleView').innerHTML = html;
+  populateSchedForm();
+}
+
+function addScheduleEntry() {
+  var day = document.getElementById('schedDay').value;
+  var period = document.getElementById('schedPeriod').value;
+  var level = document.getElementById('schedLevel').value;
+  var section = document.getElementById('schedSection').value;
+  var code = (REV_LEV[level] || '') + section;
+  if (!config.schedule[day]) config.schedule[day] = {};
+  config.schedule[day][period] = code;
+  saveConfig();
+  renderSchedule();
+  showToast('تم إضافة الحصة: ' + day + ' ح' + period + ' → ' + code);
+}
+
+function removeScheduleEntry() {
+  var day = document.getElementById('schedDay').value;
+  var period = document.getElementById('schedPeriod').value;
+  if (config.schedule[day] && config.schedule[day][period]) {
+    delete config.schedule[day][period];
+    var keys = Object.keys(config.schedule[day]);
+    if (!keys.length) delete config.schedule[day];
+    saveConfig();
+    renderSchedule();
+    showToast('تم حذف الحصة');
+  } else {
+    showToast('لا توجد حصة في هذا الموعد', 'error');
+  }
+}
+
+function showScheduleDisplay() {
+  var el = document.getElementById('schedDisplay');
+  var lines = [];
+  DAYS.forEach(function(d) {
+    var entries = config.schedule[d];
+    if (entries) {
+      var parts = Object.keys(entries).sort(function(a,b) { return +a - +b; }).map(function(p) { return 'ح' + p + ':' + entries[p]; });
+      if (parts.length) lines.push('<strong>' + d + '</strong>: ' + parts.join(' | '));
+    }
+  });
+  el.innerHTML = lines.length ? lines.join('<br>') : 'لا توجد حصص مضافة.';
+}
+
+function populateSchedForm() {
+  var sl = document.getElementById('schedLevel');
+  if (!sl) return;
+  var levels = getLevels();
+  sl.innerHTML = levels.map(function(l) { return '<option value="' + l + '">' + l + '</option>'; }).join('');
+  updateSchedSections();
+  showScheduleDisplay();
+}
+function updateSchedSections() {
+  var level = document.getElementById('schedLevel');
+  if (!level) return;
+  var secSel = document.getElementById('schedSection');
+  if (!secSel) return;
+  var secs = getSections(level.value);
+  secSel.innerHTML = secs.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+}
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'schedLevel') updateSchedSections();
+  if (e.target.id === 'newStudentLevel') updateSectionSelect();
+  if (e.target.id === 'rptLevel') { populateRptSections(); renderReportsData(); }
+});
+
+// --- Reports ---
+
+function switchToReports() {
+  currentView = 'reports';
+  saveData();
+  renderAll();
+}
+
+function renderReports() {
+  var levels = getLevels();
+  if (!levels.length) {
+    document.getElementById('reportsView').innerHTML = '<div class="reports-container"><p style="color:#94a3b8;padding:20px;">لا توجد بيانات. أضف صفوفاً وطلاباً أولاً.</p></div>';
+    return;
+  }
+  var html = '<h2 style="font-size:18px;color:#1e3a5f;margin-bottom:16px;">📊 التقارير</h2>';
+  html += '<div class="reports-filters">';
+  html += '<div class="form-group"><label>المستوى</label><select id="rptLevel" onchange="populateRptSections();populateRptStudents();renderReportsData()">';
+  levels.forEach(function(l) { html += '<option value="' + l + '">' + l + '</option>'; });
+  html += '</select></div>';
+  html += '<div class="form-group"><label>الشعبة</label><select id="rptSection" onchange="populateRptStudents();renderReportsData()"></select></div>';
+  html += '<div class="form-group"><label>الطالب</label><select id="rptStudent" onchange="renderReportsData()"></select></div>';
+  html += '</div>';
+  html += '<div class="reports-grid" id="reportsData"></div>';
+  document.getElementById('reportsView').innerHTML = html;
+  if (levels.length) {
+    if (getLevels().indexOf(currentView) > -1) document.getElementById('rptLevel').value = currentView;
+    populateRptSections();
+    populateRptStudents();
+    renderReportsData();
+  }
+}
+
+function populateRptSections() {
+  var level = document.getElementById('rptLevel').value;
+  if (!level) return;
+  var secs = getSections(level);
+  var sel = document.getElementById('rptSection');
+  sel.innerHTML = secs.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+}
+
+function populateRptStudents() {
+  var level = document.getElementById('rptLevel').value;
+  var section = document.getElementById('rptSection').value;
+  var list = students.filter(function(s) { return s.level === level && s.section === section; });
+  var sel = document.getElementById('rptStudent');
+  sel.innerHTML = '<option value="">👥 جميع الطلاب</option>' + list.map(function(s) { return '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>'; }).join('');
+}
+
+function renderReportsData() {
+  var level = document.getElementById('rptLevel').value;
+  var section = document.getElementById('rptSection').value;
+  var studentId = document.getElementById('rptStudent').value;
+  if (!level || !section) return;
+  var container = document.getElementById('reportsData');
+
+  var sessionKeys = Object.keys(sessions).filter(function(k) {
+    var p = k.split('_');
+    return p.length === 4 && p[2] === level && p[3] === section;
+  }).sort();
+  var totalSess = sessionKeys.length;
+
+  if (studentId) {
+    renderSingleStudentReport(parseInt(studentId), level, section, sessionKeys, container);
+  } else {
+    renderAllStudentsReport(level, section, sessionKeys, container);
+  }
+}
+
+function renderSingleStudentReport(studentId, level, section, sessionKeys, container) {
+  var s = students.find(function(st) { return st.id === studentId; });
+  if (!s) { container.innerHTML = '<p style="color:#94a3b8;padding:20px;">الطالب غير موجود</p>'; return; }
+  if (!sessionKeys.length) {
+    container.innerHTML = '<div class="report-card"><h3>👤 ' + escapeHtml(s.name) + '</h3><p style="color:#94a3b8;font-size:13px;">لا توجد جلسات محفوظة</p></div>';
+    return;
+  }
+
+  // Collect stats
+  var present = 0, absent = 0, late = 0;
+  var behTotal = 0, behCount = 0, disTotal = 0, disCount = 0;
+  var bookYes = 0, bookNo = 0, hwYes = 0, hwNo = 0;
+  var sessionsDetail = [];
+
+  sessionKeys.forEach(function(k) {
+    var rec = (sessions[k].records && sessions[k].records[s.id]) || {};
+    var p = k.split('_');
+    var att = rec.attendance || 'present';
+    if (att === 'present') present++;
+    else if (att === 'absent') absent++;
+    else late++;
+    if (rec.behavior) { behTotal += parseInt(rec.behavior); behCount++; }
+    if (rec.discipline) { disTotal += parseInt(rec.discipline); disCount++; }
+    if (rec.book === 'yes') bookYes++;
+    else if (rec.book === 'no') bookNo++;
+    if (rec.homework === 'yes') hwYes++;
+    else if (rec.homework === 'no') hwNo++;
+    sessionsDetail.push({ date: p[0], period: p[1], rec: rec });
+  });
+
+  var total = present + absent + late;
+  var attPct = total ? ((present / total) * 100).toFixed(1) : '100.0';
+  var behAvg = behCount ? (behTotal / behCount).toFixed(1) : '—';
+  var disAvg = disCount ? (disTotal / disCount).toFixed(1) : '—';
+  var bookPct = (bookYes + bookNo) ? ((bookYes / (bookYes + bookNo)) * 100).toFixed(0) : '—';
+  var hwPct = (hwYes + hwNo) ? ((hwYes / (hwYes + hwNo)) * 100).toFixed(0) : '—';
+  var attColor = attPct >= 90 ? '#10b981' : attPct >= 75 ? '#f59e0b' : '#ef4444';
+
+  var html = '<div class="report-card">';
+  html += '<h3>👤 ' + escapeHtml(s.name) + '</h3>';
+
+  // Summary badges
+  html += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;">';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:' + attColor + ';">' + attPct + '%</div><div style="font-size:11px;color:#64748b;">حضور</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">' + (behAvg !== '—' ? behAvg : '—') + ' / 5</div><div style="font-size:11px;color:#64748b;">سلوك</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">' + (disAvg !== '—' ? disAvg : '—') + ' / 5</div><div style="font-size:11px;color:#64748b;">انضباط</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#10b981;">' + bookPct + '%</div><div style="font-size:11px;color:#64748b;">الكتاب</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#10b981;">' + hwPct + '%</div><div style="font-size:11px;color:#64748b;">الواجب</div></div>';
+  html += '</div>';
+
+  // Detailed breakdown
+  html += '<div style="font-size:13px;color:#64748b;margin-bottom:8px;">تفاصيل الجلسات (' + totalSess + '):</div>';
+  html += '<table class="report-table"><thead><tr><th>التاريخ</th><th>الحصة</th><th>الحضور</th><th>السلوك</th><th>الانضباط</th><th>الكتاب</th><th>الواجب</th><th>ملاحظات</th></tr></thead><tbody>';
+  sessionsDetail.forEach(function(sd) {
+    var r = sd.rec;
+    var attTxt = r.attendance === 'absent' ? 'غائب' : r.attendance === 'late' ? 'متأخر' : 'حاضر';
+    var attCls = r.attendance === 'absent' ? 'color:#ef4444' : r.attendance === 'late' ? 'color:#f59e0b' : 'color:#10b981';
+    html += '<tr><td>' + sd.date + '</td><td>ح' + sd.period + '</td><td style="' + attCls + ';font-weight:600">' + attTxt + '</td><td>' + (r.behavior || '—') + '</td><td>' + (r.discipline || '—') + '</td><td>' + (r.book === 'yes' ? '✓' : r.book === 'no' ? '✗' : '—') + '</td><td>' + (r.homework === 'yes' ? '✓' : r.homework === 'no' ? '✗' : '—') + '</td><td style="text-align:right;font-size:12px;">' + (r.notes || '') + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function renderAllStudentsReport(level, section, sessionKeys, container) {
+  var list = students.filter(function(s) { return s.level === level && s.section === section; });
+  if (!list.length) {
+    container.innerHTML = '<p style="color:#94a3b8;padding:20px;">لا يوجد طلاب في هذه الشعبة</p>';
+    return;
+  }
+  var totalSess = sessionKeys.length;
+  var html = '';
+
+  // --- Attendance Report ---
+  html += '<div class="report-card">';
+  html += '<h3>📋 ملخص الحضور</h3>';
+  if (!totalSess) {
+    html += '<p style="color:#94a3b8;font-size:13px;">لا توجد جلسات محفوظة لهذه الشعبة</p>';
+  } else {
+    html += '<div style="font-size:12px;color:#64748b;margin-bottom:8px;">إجمالي الجلسات: ' + totalSess + '</div>';
+    html += '<table class="report-table"><thead><tr><th>#</th><th>الاسم</th><th>حاضر</th><th>غائب</th><th>متأخر</th><th>% الحضور</th></tr></thead><tbody>';
+    list.forEach(function(s, i) {
+      var present = 0, absent = 0, late = 0;
+      sessionKeys.forEach(function(k) {
+        var rec = (sessions[k].records && sessions[k].records[s.id]) || {};
+        var att = rec.attendance || 'present';
+        if (att === 'present') present++;
+        else if (att === 'absent') absent++;
+        else if (att === 'late') late++;
+      });
+      var total = present + absent + late;
+      var pct = total ? ((present / total) * 100).toFixed(1) : 100;
+      var color = pct >= 90 ? '#10b981' : pct >= 75 ? '#f59e0b' : '#ef4444';
+      html += '<tr><td>' + (i+1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + present + '</td><td>' + absent + '</td><td>' + late + '</td><td style="color:' + color + ';font-weight:700">' + pct + '%</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  html += '</div>';
+
+  // --- Behavior & Discipline Report ---
+  html += '<div class="report-card">';
+  html += '<h3>⭐ السلوك والانضباط</h3>';
+  if (!totalSess) {
+    html += '<p style="color:#94a3b8;font-size:13px;">لا توجد بيانات</p>';
+  } else {
+    html += '<table class="report-table"><thead><tr><th>#</th><th>الاسم</th><th>متوسط السلوك</th><th>متوسط الانضباط</th><th>المجموع</th></tr></thead><tbody>';
+    list.forEach(function(s, i) {
+      var behTotal = 0, behCount = 0, disTotal = 0, disCount = 0;
+      sessionKeys.forEach(function(k) {
+        var rec = (sessions[k].records && sessions[k].records[s.id]) || {};
+        if (rec.behavior) { behTotal += parseInt(rec.behavior); behCount++; }
+        if (rec.discipline) { disTotal += parseInt(rec.discipline); disCount++; }
+      });
+      var behAvg = behCount ? (behTotal / behCount).toFixed(1) : '—';
+      var disAvg = disCount ? (disTotal / disCount).toFixed(1) : '—';
+      var sum = (behAvg !== '—' && disAvg !== '—') ? ((parseFloat(behAvg) + parseFloat(disAvg)) / 2).toFixed(1) : (behAvg !== '—' ? behAvg : (disAvg !== '—' ? disAvg : '—'));
+      html += '<tr><td>' + (i+1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + behAvg + '</td><td>' + disAvg + '</td><td style="font-weight:700;color:#1e3a5f">' + sum + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  html += '</div>';
+
+  // --- Book & Homework Report ---
+  html += '<div class="report-card">';
+  html += '<h3>📚 الكتاب والواجب</h3>';
+  if (!totalSess) {
+    html += '<p style="color:#94a3b8;font-size:13px;">لا توجد بيانات</p>';
+  } else {
+    html += '<table class="report-table"><thead><tr><th>#</th><th>الاسم</th><th>الكتاب ✓</th><th>الكتاب ✗</th><th>% الكتاب</th><th>الواجب ✓</th><th>الواجب ✗</th><th>% الواجب</th></tr></thead><tbody>';
+    list.forEach(function(s, i) {
+      var bookYes = 0, bookNo = 0, hwYes = 0, hwNo = 0;
+      sessionKeys.forEach(function(k) {
+        var rec = (sessions[k].records && sessions[k].records[s.id]) || {};
+        if (rec.book === 'yes') bookYes++;
+        else if (rec.book === 'no') bookNo++;
+        if (rec.homework === 'yes') hwYes++;
+        else if (rec.homework === 'no') hwNo++;
+      });
+      var bookTotal = bookYes + bookNo;
+      var hwTotal = hwYes + hwNo;
+      var bookPct = bookTotal ? ((bookYes / bookTotal) * 100).toFixed(0) : '—';
+      var hwPct = hwTotal ? ((hwYes / hwTotal) * 100).toFixed(0) : '—';
+      html += '<tr><td>' + (i+1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + bookYes + '</td><td>' + bookNo + '</td><td style="font-weight:600">' + bookPct + '%</td><td>' + hwYes + '</td><td>' + hwNo + '</td><td style="font-weight:600">' + hwPct + '%</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+// --- Settings ---
+
+function loadSettingsForm() {
+  document.getElementById('cfgTeacher').value = config.teacherName || '';
+  document.getElementById('cfgSchool').value = config.schoolName || '';
+  document.getElementById('cfgDirectorate').value = config.directorate || '';
+  document.getElementById('cfgYear').value = config.academicYear || '';
+  document.getElementById('cfgSemester').value = config.semester || 'الأول';
+  document.getElementById('cfgDriveClientId').value = config.googleClientId || '';
+  renderLevelsManager();
+  updateDriveUI();
+}
+
+function saveSettings() {
+  config.teacherName = document.getElementById('cfgTeacher').value.trim();
+  config.schoolName = document.getElementById('cfgSchool').value.trim();
+  config.directorate = document.getElementById('cfgDirectorate').value.trim();
+  config.academicYear = document.getElementById('cfgYear').value.trim();
+  config.semester = document.getElementById('cfgSemester').value;
+  config.googleClientId = document.getElementById('cfgDriveClientId').value.trim();
+  saveConfig();
+  initGoogleAuth();
+  updateDriveUI();
+}
+
+function renderLevelsManager() {
+  var container = document.getElementById('levelsManager');
+  var levels = getLevels();
+  if (!levels.length) {
+    container.innerHTML = '<p style="color:#94a3b8;font-size:14px;">لا توجد صفوف بعد. أضف صفاً جديداً.</p>';
+    return;
+  }
+  container.innerHTML = levels.map(function(l) {
+    var secs = getSections(l);
+    var studentCount = students.filter(function(s) { return s.level === l; }).length;
+    return '<div class="level-card">' +
+      '<div class="level-card-header">' +
+        '<h4>' + l + ' <span style="font-size:12px;color:#94a3b8;font-weight:400;">(' + studentCount + ' طالب)</span></h4>' +
+        '<button class="btn btn-danger btn-sm" onclick="removeLevel(\'' + safeStr(l) + '\')">✕ حذف</button>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+        '<span style="font-size:13px;color:#475569;">الشعب: ' + secs.join(' - ') + '</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;">' +
+          '<input type="number" id="secCount_' + l.replace(/\s/g,'_') + '" value="' + secs.length + '" min="1" max="15" style="width:50px;padding:4px 6px;border:2px solid #e2e8f0;border-radius:5px;font-size:12px;font-family:inherit;text-align:center;" onchange="updateSecCount(\'' + safeStr(l) + '\')">' +
+          '<span style="font-size:12px;color:#94a3b8;">شعبة</span>' +
+        '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function addLevel() {
+  var input = document.getElementById('newLevelInput');
+  var countInput = document.getElementById('newLevelSections');
+  var name = input.value.trim();
+  var secCount = parseInt(countInput.value) || 3;
+  if (!name) { showToast('الرجاء إدخال اسم الصف', 'error'); return; }
+  if (config.levels[name]) { showToast('هذا الصف موجود مسبقاً', 'error'); return; }
+  config.levels[name] = genSecNames(secCount);
+  saveConfig();
+  input.value = '';
+  countInput.value = '3';
+  renderLevelsManager();
+  renderTabs();
+  loadSettingsForm();
+  showToast('تم إضافة الصف "' + name + '" بـ ' + secCount + ' شعب');
+}
+
+function removeLevel(name) {
+  var count = students.filter(function(s) { return s.level === name; }).length;
+  if (!confirm(count ? 'هذا الصف يحتوي على ' + count + ' طالب. هل تريد حذف الصف وجميع طلابه؟' : 'هل تريد حذف الصف "' + name + '"؟')) return;
+  students = students.filter(function(s) { return s.level !== name; });
+  delete config.levels[name];
+  Object.keys(sessions).forEach(function(k) {
+    if (k.indexOf('_' + name + '_') > -1) delete sessions[k];
+  });
+  saveSessions();
+  saveConfig();
+  saveData();
+  var levels = getLevels();
+  if (currentView === name) {
+    currentView = levels.length ? levels[0] : 'settings';
+    if (currentView !== 'settings') {
+      var secs = getSections(currentView);
+      if (!secs.includes(currentSection)) currentSection = secs.length ? secs[0] : 'أ';
+    }
+  }
+  saveData();
+  renderAll();
+  showToast('تم حذف الصف "' + name + '"');
+}
+
+function updateSecCount(level) {
+  var input = document.getElementById('secCount_' + level.replace(/\s/g,'_'));
+  var newCount = parseInt(input.value) || 1;
+  if (newCount < 1) newCount = 1;
+  if (newCount > 15) newCount = 15;
+  input.value = newCount;
+  var oldSecs = getSections(level);
+  var newNames = genSecNames(newCount);
+  config.levels[level] = newNames;
+  students.forEach(function(s) {
+    if (s.level === level && !newNames.includes(s.section)) {
+      s.section = newNames[0];
+    }
+  });
+  saveConfig();
+  saveData();
+  if (currentView === level && !newNames.includes(currentSection)) {
+    currentSection = newNames.length ? newNames[0] : 'أ';
+    saveData();
+  }
+  renderAll();
+  showToast('تم تحديث عدد شعب "' + level + '" إلى ' + newCount);
+}
+
+// --- Student CRUD ---
+
+function showAddModal() {
+  if (!getLevels().length) { showToast('الرجاء إضافة صف أولاً من الإعدادات', 'error'); return; }
+  document.getElementById('addModal').classList.add('active');
+  document.getElementById('newStudentName').value = '';
+  document.getElementById('newStudentCount').value = '1';
+  var levelSel = document.getElementById('newStudentLevel');
+  var levels = getLevels();
+  levelSel.innerHTML = levels.map(function(l) { return '<option value="' + l + '">' + l + '</option>'; }).join('');
+  if (currentView !== 'settings' && currentView !== 'reports') levelSel.value = currentView;
+  updateSectionSelect();
+  setTimeout(function() { document.getElementById('newStudentName').focus(); }, 100);
+}
+function updateSectionSelect() {
+  var level = document.getElementById('newStudentLevel').value;
+  var secSel = document.getElementById('newStudentSection');
+  var secs = getSections(level);
+  secSel.innerHTML = secs.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+  if (currentView !== 'settings' && currentView !== 'reports' && currentSection && secs.includes(currentSection)) secSel.value = currentSection;
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function addStudent() {
+  var name = document.getElementById('newStudentName').value.trim();
+  var level = document.getElementById('newStudentLevel').value;
+  var section = document.getElementById('newStudentSection').value;
+  var count = parseInt(document.getElementById('newStudentCount').value) || 1;
+  if (!name) { showToast('الرجاء إدخال اسم الطالب', 'error'); return; }
+  for (var i = 0; i < count; i++) {
+    students.push({
+      id: Date.now() + i,
+      name: count > 1 ? name + ' (' + (i + 1) + ')' : name,
+      level: level, section: section
+    });
+  }
+  saveData();
+  renderAll();
+  closeModal('addModal');
+  showToast('تم إضافة ' + count + ' طالب بنجاح');
+}
+
+var moveTargetId = null;
+
+function showMoveModal(id) {
+  var s = students.find(function(st) { return st.id === id; });
+  if (!s) return;
+  moveTargetId = id;
+  document.getElementById('moveStudentName').textContent = 'نقل الطالب: ' + s.name;
+  var levels = getLevels();
+  var ml = document.getElementById('moveLevel');
+  ml.innerHTML = levels.map(function(l) { return '<option value="' + l + '">' + l + '</option>'; }).join('');
+  ml.value = s.level;
+  updateMoveSections();
+  var ms = document.getElementById('moveSection');
+  var secs = getSections(s.level);
+  if (secs.length > 1) {
+    var idx = secs.indexOf(s.section);
+    ms.value = idx > 0 ? secs[0] : (secs[1] || secs[0]);
+  }
+  document.getElementById('moveModal').classList.add('active');
+}
+
+function updateMoveSections() {
+  var level = document.getElementById('moveLevel').value;
+  var secs = getSections(level);
+  var ms = document.getElementById('moveSection');
+  ms.innerHTML = secs.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+}
+
+function moveStudent() {
+  var s = students.find(function(st) { return st.id === moveTargetId; });
+  if (!s) return;
+  var newLevel = document.getElementById('moveLevel').value;
+  var newSection = document.getElementById('moveSection').value;
+  if (s.level === newLevel && s.section === newSection) {
+    showToast('لم يتغير شيء - نفس المستوى والشعبة', 'error');
+    return;
+  }
+  s.level = newLevel;
+  s.section = newSection;
+  saveData();
+  closeModal('moveModal');
+  if (currentView !== newLevel) {
+    currentView = newLevel;
+    currentSection = newSection;
+  } else {
+    currentSection = newSection;
+  }
+  saveData();
+  renderAll();
+  showToast('تم نقل الطالب بنجاح');
+}
+
+function showImportModal() {
+  if (!getLevels().length) { showToast('الرجاء إضافة صف أولاً من الإعدادات', 'error'); return; }
+  document.getElementById('importModal').classList.add('active');
+  var levelSel = document.getElementById('importLevel');
+  var levels = getLevels();
+  levelSel.innerHTML = levels.map(function(l) { return '<option value="' + l + '">' + l + '</option>'; }).join('');
+  if (currentView !== 'settings' && currentView !== 'reports') levelSel.value = currentView;
+  document.getElementById('importData').value = '';
+  setTimeout(function() { document.getElementById('importData').focus(); }, 100);
+}
+function closeImportModal() { document.getElementById('importModal').classList.remove('active'); }
+
+function importStudents() {
+  var raw = document.getElementById('importData').value.trim();
+  var defaultLevel = document.getElementById('importLevel').value;
+  if (!raw) { showToast('الرجاء لصق بيانات الطلاب أولاً', 'error'); return; }
+  var lines = raw.split('\n').filter(function(l) { return l.trim(); });
+  var added = 0, skipped = 0;
+  lines.forEach(function(line) {
+    line = line.trim();
+    if (!line) return;
+    var parts;
+    if (line.includes('\t')) parts = line.split('\t');
+    else parts = line.split(',').map(function(s) { return s.trim(); });
+    if (parts.length < 1 || !parts[0].trim()) { skipped++; return; }
+    var name = parts[0].trim();
+    var level = parts[2] ? parts[2].trim() : defaultLevel;
+    ensureLevel(level);
+    var secs = getSections(level);
+    var section = parts[1] ? parts[1].trim() : (currentView === level ? currentSection : (secs.length ? secs[0] : 'أ'));
+    if (!secs.includes(section)) section = secs.length ? secs[0] : 'أ';
+    students.push({
+      id: Date.now() + added,
+      name: name, level: level, section: section
+    });
+    added++;
+  });
+  saveConfig();
+  saveData();
+  if (added > 0) {
+    currentView = defaultLevel;
+    var secs = getSections(currentView);
+    if (!secs.includes(currentSection)) currentSection = secs.length ? secs[0] : 'أ';
+    saveData();
+  }
+  renderAll();
+  closeImportModal();
+  var msg = 'تم استيراد ' + added + ' طالب بنجاح';
+  if (skipped) msg += '، تم تخطي ' + skipped + ' سطراً';
+  showToast(msg);
+}
+
+function deleteStudent(id) {
+  if (!confirm('هل تريد حذف هذا الطالب؟')) return;
+  students = students.filter(function(s) { return s.id !== id; });
+  saveData();
+  Object.keys(sessions).forEach(function(k) {
+    if (sessions[k].records) delete sessions[k].records[id];
+  });
+  saveSessions();
+  renderAll();
+  showToast('تم حذف الطالب');
+}
+
+function clearAll() {
+  if (!confirm('هل تريد تفريغ جميع البيانات؟')) return;
+  students = [];
+  sessions = {};
+  saveData();
+  saveSessions();
+  renderAll();
+  showToast('تم التفريغ');
+}
+
+function getSessRec(id) {
+  var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
+  if (!sessions[sk]) sessions[sk] = { records: {} };
+  if (!sessions[sk].records) sessions[sk].records = {};
+  if (!sessions[sk].records[id]) sessions[sk].records[id] = {};
+  return sessions[sk].records[id];
+}
+
+function updateField(id, field, value) {
+  if (field === 'name') {
+    var s = students.find(function(st) { return st.id === id; });
+    if (s) { s.name = value; saveData(); }
+    return;
+  }
+  var rec = getSessRec(id);
+  rec[field] = value;
+}
+
+function setAttendance(id, status) {
+  var rec = getSessRec(id);
+  rec.attendance = status;
+  renderTable();
+}
+
+function setBook(id, val) {
+  var rec = getSessRec(id);
+  rec.book = rec.book === val ? '' : val;
+  renderTable();
+}
+
+function setHomework(id, val) {
+  var rec = getSessRec(id);
+  rec.homework = rec.homework === val ? '' : val;
+  renderTable();
+}
+
+function saveSession() {
+  var dt = document.getElementById('sessDate').value;
+  var prd = parseInt(document.getElementById('sessPeriod').value) || 1;
+  if (!dt) { showToast('الرجاء اختيار التاريخ', 'error'); return; }
+  currentSessDate = dt; currentPeriod = prd;
+  var sk = sessKey(dt, prd, currentView, currentSection);
+  if (!sessions[sk]) sessions[sk] = { records: {} };
+  sessions[sk].records = sessions[sk].records || {};
+  saveSessions();
+  populateSessLoad();
+  showToast('تم حفظ الجلسة');
+}
+
+function loadSession(key) {
+  if (!key) return;
+  var parts = key.split('_');
+  currentSessDate = parts[0];
+  currentPeriod = parseInt(parts[1]);
+  document.getElementById('sessDate').value = currentSessDate;
+  document.getElementById('sessPeriod').value = currentPeriod;
+  document.getElementById('sessLoad').value = key;
+  renderTable();
+}
+
+function populateSessLoad() {
+  var sel = document.getElementById('sessLoad');
+  if (!sel) return;
+  var curVal = sel.value;
+  var opts = ['<option value="">📂 تحميل جلسة...</option>'];
+  Object.keys(sessions).sort().reverse().forEach(function(k) {
+    var p = k.split('_');
+    if (p.length === 4 && p[2] === currentView && p[3] === currentSection) {
+      var selAttr = k === curVal ? ' selected' : '';
+      opts.push('<option value="' + k + '"' + selAttr + '>' + p[0] + ' - الحصة ' + p[1] + '</option>');
+    }
+  });
+  sel.innerHTML = opts.join('');
+}
+
+function getStatusText(status) {
+  return { present: 'حاضر', absent: 'غائب', late: 'متأخر' }[status] || 'حاضر';
+}
+
+function renderTable() {
+  var search = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+  var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
+  var sess = sessions[sk];
+  var filtered = students.filter(function(s) {
+    if (s.level !== currentView) return false;
+    if (s.section !== currentSection) return false;
+    if (search && s.name.toLowerCase().indexOf(search) === -1) return false;
+    return true;
+  });
+  var tbody = document.getElementById('tableBody');
+  var empty = document.getElementById('emptyState');
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    tbody.innerHTML = filtered.map(function(s, i) {
+      var rec = (sess && sess.records && sess.records[s.id]) || {};
+      var att = rec.attendance || 'present';
+      var rowClass = att === 'absent' ? 'class="absent"' : '';
+      return '<tr ' + rowClass + '>' +
+        '<td>' + (i + 1) + '</td>' +
+        '<td style="text-align:right"><input class="student-name-input" value="' + escapeHtml(s.name) + '" onchange="updateField(' + s.id + ',\'name\',this.value)" onfocus="this.select()"></td>' +
+        '<td><div class="attendance-btns">' +
+          '<button class="att-btn present' + (att === 'present' ? '' : ' muted') + '" onclick="setAttendance(' + s.id + ',\'present\')" title="حاضر">✓</button>' +
+          '<button class="att-btn absent' + (att === 'absent' ? '' : ' muted') + '" onclick="setAttendance(' + s.id + ',\'absent\')" title="غائب">✗</button>' +
+          '<button class="att-btn late' + (att === 'late' ? '' : ' muted') + '" onclick="setAttendance(' + s.id + ',\'late\')" title="متأخر">◷</button>' +
+        '</div></td>' +
+        '<td><input class="grade-input" type="number" min="1" max="5" value="' + (rec.behavior || '') + '" onchange="updateField(' + s.id + ',\'behavior\',this.value)" onfocus="this.select()" style="width:50px"></td>' +
+        '<td><input class="grade-input" type="number" min="1" max="5" value="' + (rec.discipline || '') + '" onchange="updateField(' + s.id + ',\'discipline\',this.value)" onfocus="this.select()" style="width:50px"></td>' +
+        '<td><div class="attendance-btns">' +
+          '<button class="att-btn present' + (rec.book === 'yes' ? '' : ' muted') + '" onclick="setBook(' + s.id + ',\'yes\')" title="نعم">✓</button>' +
+          '<button class="att-btn absent' + (rec.book === 'no' ? '' : ' muted') + '" onclick="setBook(' + s.id + ',\'no\')" title="لا">✗</button>' +
+        '</div></td>' +
+        '<td><div class="attendance-btns">' +
+          '<button class="att-btn present' + (rec.homework === 'yes' ? '' : ' muted') + '" onclick="setHomework(' + s.id + ',\'yes\')" title="نعم">✓</button>' +
+          '<button class="att-btn absent' + (rec.homework === 'no' ? '' : ' muted') + '" onclick="setHomework(' + s.id + ',\'no\')" title="لا">✗</button>' +
+        '</div></td>' +
+        '<td><input class="notes-input" value="' + (rec.notes || '') + '" onchange="updateField(' + s.id + ',\'notes\',this.value)" onfocus="this.select()" placeholder="..." maxlength="50"></td>' +
+        '<td><div class="action-btns"><button class="btn btn-sm" style="background:#e2e8f0;color:#475569" onclick="showMoveModal(' + s.id + ')" title="نقل">🚚</button><button class="btn btn-danger btn-sm" onclick="deleteStudent(' + s.id + ')">✕</button></div></td>' +
+      '</tr>';
+    }).join('');
+  }
+  updateStats();
+}
+
+function escapeHtml(str) {
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function updateStats() {
+  var current = students.filter(function(s) { return s.level === currentView && s.section === currentSection; });
+  var total = current.length;
+  var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
+  var sess = sessions[sk];
+  var present = 0, absent = 0, late = 0;
+  current.forEach(function(s) {
+    var rec = (sess && sess.records && sess.records[s.id]) || {};
+    var att = rec.attendance || 'present';
+    if (att === 'present') present++; else if (att === 'absent') absent++; else late++;
+  });
+  document.getElementById('stats').innerHTML = '<span class="stat-item">👥 ' + total + '</span>' +
+    '<span class="stat-item"><span class="stat-dot green"></span> ' + present + '</span>' +
+    '<span class="stat-item"><span class="stat-dot red"></span> ' + absent + '</span>' +
+    '<span class="stat-item"><span class="stat-dot yellow"></span> ' + late + '</span>';
+}
+
+function printSection(section) {
+  if (!students.length) { showToast('لا يوجد بيانات للطباعة', 'error'); return; }
+  if (currentView === 'settings' || currentView === 'schedule' || currentView === 'reports') return;
+  var current = students.filter(function(s) { return s.level === currentView && s.section === section; });
+  if (!current.length) { showToast('لا يوجد طلاب في هذه الشعبة', 'error'); return; }
+  var sk = sessKey(currentSessDate, currentPeriod, currentView, section);
+  var sess = sessions[sk];
+  var html = '<div id="printArea">';
+  html += '<div class="print-header">';
+  html += '<h2>' + (config.schoolName || 'متابعة الطلاب') + '</h2>';
+  var meta = [];
+  if (config.directorate) meta.push('المديرية: ' + config.directorate);
+  if (config.teacherName) meta.push('المعلم: ' + config.teacherName);
+  if (config.academicYear) meta.push('العام: ' + config.academicYear);
+  if (config.semester) meta.push('الفصل: ' + config.semester);
+  meta.push('التاريخ: ' + currentSessDate);
+  meta.push('الحصة: ' + currentPeriod);
+  html += '<div class="print-meta">' + meta.join(' | ') + '</div>';
+  html += '<h3>' + currentView + ' - شعبة ' + section + '</h3>';
+  html += '</div>';
+  html += '<table><thead><tr>';
+  html += '<th width="4%">#</th><th width="26%">اسم الطالب</th><th width="10%">الحضور</th><th width="8%">السلوك</th><th width="8%">الانضباط</th><th width="7%">الكتاب</th><th width="7%">الواجب</th><th width="30%">ملاحظات</th>';
+  html += '</tr></thead><tbody>';
+  current.forEach(function(s, i) {
+    var rec = (sess && sess.records && sess.records[s.id]) || {};
+    var att = rec.attendance || 'present';
+    html += '<tr>' +
+      '<td>' + (i + 1) + '</td>' +
+      '<td>' + escapeHtml(s.name) + '</td>' +
+      '<td>' + getStatusText(att) + '</td>' +
+      '<td>' + (rec.behavior || '—') + '</td>' +
+      '<td>' + (rec.discipline || '—') + '</td>' +
+      '<td>' + (rec.book === 'yes' ? '✓' : rec.book === 'no' ? '✗' : '—') + '</td>' +
+      '<td>' + (rec.homework === 'yes' ? '✓' : rec.homework === 'no' ? '✗' : '—') + '</td>' +
+      '<td>' + (rec.notes || '') + '</td>' +
+    '</tr>';
+  });
+  html += '</tbody></table></div>';
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div);
+    window.print();
+    document.body.removeChild(div);
+}
+
+function exportCSV() {
+  if (!students.length) { showToast('لا يوجد بيانات للتصدير', 'error'); return; }
+  var levels = getLevels();
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>متابعة الطلاب</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--><style>.t { border-collapse:collapse; font-family:Segoe UI,Tahoma,sans-serif; font-size:12px; } .t td, .t th { border:1px solid #94a3b8; padding:5px 6px; text-align:center; } .t th { background:#1e3a5f; color:#fff; font-weight:700; } .hdr { font-size:16px; font-weight:700; color:#1e3a5f; text-align:center; } .sub { font-size:12px; color:#475569; text-align:center; } .muted { color:#94a3b8; }</style></head><body>';
+  var title = config.schoolName || 'متابعة الطلاب';
+  html += '<div class="hdr">' + title + '</div>';
+  var metaParts = [];
+  if (config.directorate) metaParts.push('المديرية: ' + config.directorate);
+  if (config.teacherName) metaParts.push('المعلم/ة: ' + config.teacherName);
+  if (config.academicYear) metaParts.push('العام الدراسي: ' + config.academicYear);
+  if (config.semester) metaParts.push('الفصل: ' + config.semester);
+  html += '<div class="sub">' + metaParts.join(' | ') + '</div><br>';
+  levels.forEach(function(level) {
+    var secs = getSections(level);
+    secs.forEach(function(section) {
+      var list = students.filter(function(s) { return s.level === level && s.section === section; });
+      if (!list.length) return;
+      html += '<div style="font-weight:700;color:#1e3a5f;margin:16px 0 4px;font-size:14px">' + level + ' - شعبة ' + section + '</div>';
+      html += '<table class="t"><tr><th>#</th><th>الاسم</th><th>الحضور</th><th>السلوك</th><th>الانضباط</th><th>الكتاب</th><th>الواجب</th><th>ملاحظات</th></tr>';
+      list.forEach(function(s, i) {
+        var rec = {};
+        Object.keys(sessions).forEach(function(k) {
+          if (sessions[k].records && sessions[k].records[s.id]) Object.assign(rec, sessions[k].records[s.id]);
+        });
+        var attTxt = getStatusText(rec.attendance);
+        var attColor = rec.attendance === 'absent' ? 'color:#ef4444' : rec.attendance === 'late' ? 'color:#eab308' : '';
+        html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td style="' + attColor + '">' + attTxt + '</td><td>' + (rec.behavior || '') + '</td><td>' + (rec.discipline || '') + '</td><td>' + (rec.book === 'yes' ? '✓' : rec.book === 'no' ? '✗' : '') + '</td><td>' + (rec.homework === 'yes' ? '✓' : rec.homework === 'no' ? '✗' : '') + '</td><td style="text-align:right">' + (rec.notes || '') + '</td></tr>';
+      });
+      html += '</table>';
+    });
+  });
+  html += '</body></html>';
+  var blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'متابعة_الطلاب_' + new Date().toLocaleDateString('ar-SA').replace(/\//g, '-') + '.xls';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('تم تصدير ملف Excel بنجاح');
+}
+
+// --- Google Drive ---
+
+function initGoogleAuth() {
+  var cid = config.googleClientId;
+  if (!cid || typeof google === 'undefined' || !google.accounts) return;
+  if (tokenClient) return;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cid,
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    callback: function(resp) {
+      if (resp.access_token) {
+        driveToken = resp.access_token;
+        localStorage.setItem('driveToken', driveToken);
+        updateDriveUI();
+        showToast('✅ تم تسجيل الدخول إلى Google Drive');
+      } else if (resp.error === 'id_token_or_access_token_parse_failed') {
+        driveToken = null;
+        localStorage.removeItem('driveToken');
+        updateDriveUI();
+      }
+    }
+  });
+  // استعادة التوكن المحفوظ + محاولة تجديده بصمت
+  var saved = localStorage.getItem('driveToken');
+  if (saved) {
+    driveToken = saved;
+    updateDriveUI();
+    // طلب توكن جديد بصمت (بدون نافذة منبثقة)
+    try { tokenClient.requestAccessToken({ prompt: 'none' }); } catch(e) {}
+  }
+}
+
+function driveLogin() {
+  if (!config.googleClientId) { showToast('الرجاء إدخال Client ID من الإعدادات', 'error'); return; }
+  if (typeof google === 'undefined' || !google.accounts) { showToast('مكتبة Google لم تحمل بعد، انتظر لحظة ثم حاول', 'error'); return; }
+  if (!tokenClient) initGoogleAuth();
+  if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function driveLogout() {
+  if (driveToken) {
+    google.accounts.oauth2.revoke(driveToken, function() {});
+  }
+  driveToken = null;
+  localStorage.removeItem('driveToken');
+  updateDriveUI();
+  showToast('تم تسجيل الخروج');
+}
+
+function updateDriveUI() {
+  var loginBtn = document.getElementById('driveLoginBtn');
+  var logoutBtn = document.getElementById('driveLogoutBtn');
+  var status = document.getElementById('driveStatus');
+  if (!loginBtn) return;
+  if (driveToken) {
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = '';
+    status.textContent = '✅ متصل';
+  } else {
+    loginBtn.style.display = config.googleClientId ? '' : 'none';
+    logoutBtn.style.display = 'none';
+    status.textContent = config.googleClientId ? 'غير متصل' : 'أدخل Client ID أعلاه';
+  }
+}
+
+function driveRequest(method, path, body) {
+  var opts = {
+    method: method,
+    headers: { 'Authorization': 'Bearer ' + driveToken }
+  };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  return fetch('https://www.googleapis.com/drive/v3/' + path, opts);
+}
+
+function findOrCreateDriveFile() {
+  return driveRequest('GET', 'files?q=name%3D%27%D9%85%D8%AA%D8%A7%D8%A8%D8%B9%D8%A9_%D8%A7%D9%84%D8%B7%D9%84%D8%A7%D8%A8_%D8%A8%D9%8A%D8%A7%D9%86%D8%A7%D8%AA.json%27+and+trashed%3Dfalse&fields=files(id,name)')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.files && data.files.length > 0) {
+        config.driveFileId = data.files[0].id;
+        return data.files[0].id;
+      }
+      return driveRequest('POST', 'files?fields=id', {
+        name: 'متابعة_الطلاب_بيانات.json',
+        mimeType: 'application/json'
+      }).then(function(r) { return r.json(); }).then(function(f) {
+        config.driveFileId = f.id;
+        saveConfig();
+        return f.id;
+      });
+    });
+}
+
+function saveToDrive() {
+  if (!driveToken) { showToast('الرجاء تسجيل الدخول أولاً', 'error'); return; }
+  showToast('جاري الحفظ إلى Drive...');
+  var payload = { students: students, sessions: sessions, config: config };
+  (config.driveFileId ? Promise.resolve(config.driveFileId) : findOrCreateDriveFile())
+    .then(function(fileId) {
+      return fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + driveToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    })
+    .then(function(r) {
+      if (r.status === 401) { handleTokenExpired(); throw new Error('انتهت صلاحية التوكن، سجل دخول مرة أخرى'); }
+      if (!r.ok) throw new Error('خطأ في الحفظ');
+      saveConfig();
+      showToast('✅ تم حفظ البيانات إلى Google Drive');
+    })
+    .catch(function(e) {
+      showToast('❌ فشل الحفظ: ' + e.message, 'error');
+    });
+}
+
+function handleTokenExpired() {
+  driveToken = null;
+  localStorage.removeItem('driveToken');
+  updateDriveUI();
+}
+
+function loadFromDrive() {
+  if (!driveToken) { showToast('الرجاء تسجيل الدخول أولاً', 'error'); return; }
+  if (!config.driveFileId) { showToast('لم يتم العثور على ملف في Drive، احفظ أولاً', 'error'); return; }
+  showToast('جاري التحميل من Drive...');
+  driveRequest('GET', 'files/' + config.driveFileId + '?alt=media')
+    .then(function(r) {
+      if (r.status === 401) { handleTokenExpired(); throw new Error('انتهت صلاحية التوكن، سجل دخول مرة أخرى'); }
+      if (!r.ok) throw new Error('تعذر تحميل الملف');
+      return r.json();
+    })
+    .then(function(data) {
+      if (data.students) students = data.students;
+      if (data.sessions) sessions = data.sessions;
+      if (data.config) {
+        config.teacherName = data.config.teacherName || '';
+        config.schoolName = data.config.schoolName || '';
+        config.directorate = data.config.directorate || '';
+        config.academicYear = data.config.academicYear || '';
+        config.semester = data.config.semester || '';
+        config.levels = data.config.levels || {};
+        config.schedule = data.config.schedule || {};
+      }
+      saveData();
+      saveSessions();
+      saveConfig();
+      renderAll();
+      showToast('✅ تم تحميل البيانات من Drive');
+    })
+    .catch(function(e) {
+      showToast('❌ فشل التحميل: ' + e.message, 'error');
+    });
+}
+
+loadData();
+initGoogleAuth();   // restore saved token BEFORE render
+renderAll();
+// Retry GIS init after library loads (async defer)
+var gisRetry = setInterval(function() {
+  if (typeof google !== 'undefined' && google.accounts) {
+    clearInterval(gisRetry);
+    if (!tokenClient) initGoogleAuth();
+    updateDriveUI();
+  }
+}, 500);
+</script>
+</body>
+</html>
