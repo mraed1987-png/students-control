@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -709,6 +709,16 @@ tr.absent:hover td { background: #fee2e2; }
           <input type="number" id="newLevelSections" value="3" min="1" max="15" style="width:60px">
           <span style="font-size:13px;color:#475569;">شعبة</span>
           <button class="btn btn-primary" onclick="addLevel()">+ إضافة صف</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>💾 نسخة احتياطية كاملة (ملف)</h3>
+        <p style="font-size:13px;color:#64748b;margin:2px 0 10px;">حفظ كل البيانات (الطلاب، الحضور، الجدول، الإعدادات، عدد الشعب) في ملف واحد على جهازك. انقله بين أي جهاز عبر واتساب/إيميل/فلاشة.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-success" onclick="exportBackup()">⬇️ إنشاء نسخة احتياطية</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('backupFile').click()">⬆️ استعادة من نسخة</button>
+          <input type="file" id="backupFile" accept=".json,application/json" style="display:none" onchange="importBackup(event)">
         </div>
       </div>
 
@@ -2235,6 +2245,59 @@ function exportCSV() {
 }
 
 // --- Google Drive ---
+
+function exportBackup() {
+  var bundle = {
+    app: 'متابعة الطلبة',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    students: students,
+    config: config,
+    sessions: sessions
+  };
+  var blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=UTF-8' });
+  var filename = 'متابعة_الطلبة_' + todayStr() + '_نسخة.json';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 300);
+  showToast('✅ تم تنزيل النسخة الاحتياطية');
+}
+
+function importBackup(event) {
+  var file = event.target.files && event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var data;
+    try { data = JSON.parse(e.target.result); }
+    catch(err) { showToast('⚠️ الملف ليس نسخة احتياطية صحيحة', 'error'); event.target.value = ''; return; }
+    if (!data || !data.students || !data.config || !data.sessions) {
+      showToast('⚠️ الملف ليس نسخة احتياطية صحيحة', 'error'); event.target.value = ''; return;
+    }
+    if (!confirm('سيتم استبدال كل البيانات الحالية (الطلاب + الجدول + الحضور + الإعدادات) بما في الملف. هل تريد المتابعة؟')) {
+      event.target.value = ''; return;
+    }
+    students = data.students;
+    config = data.config;
+    sessions = data.sessions;
+    if (typeof google !== 'undefined' && google.accounts) initGoogleAuth();
+    normalizeStudentLevels();
+    saveData();
+    saveConfig();
+    saveSessions();
+    currentView = 'settings';
+    currentSection = getSections(currentView)[0] || 'أ';
+    if (typeof loadSettingsForm === 'function') loadSettingsForm();
+    updateDriveUI();
+    renderAll();
+    showToast('✅ تمت الاستعادة بنجاح');
+  };
+  reader.onerror = function() { showToast('⚠️ تعذّرت قراءة الملف', 'error'); };
+  reader.readAsText(file, 'UTF-8');
+}
 
 function initGoogleAuth() {
   var cid = config.googleClientId;
