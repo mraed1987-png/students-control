@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>متابعة الطلاب</title>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -722,24 +722,7 @@ tr.absent:hover td { background: #fee2e2; }
         </div>
       </div>
 
-      <div class="settings-section">
-        <h3>☁️ مزامنة Google Drive</h3>
-        <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
-          <div class="form-group">
-            <label>معرف OAuth Client ID <span style="font-weight:400;color:#94a3b8;">(من Google Cloud Console)</span></label>
-            <input type="text" id="cfgDriveClientId" onchange="saveSettings()" placeholder="...apps.googleusercontent.com" style="direction:ltr;text-align:left;font-family:monospace;font-size:12px">
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <button class="btn btn-primary" id="driveLoginBtn" onclick="driveLogin()" style="display:none">🔗 تسجيل الدخول</button>
-            <button class="btn btn-secondary" id="driveLogoutBtn" onclick="driveLogout()" style="display:none">🔓 تسجيل الخروج</button>
-            <span id="driveStatus" style="font-size:13px;color:#64748b"></span>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-success" onclick="saveToDrive()">☁️ حفظ إلى Drive</button>
-            <button class="btn btn-secondary" onclick="loadFromDrive()">📥 تحميل من Drive</button>
-          </div>
-        </div>
-      </div>
+
 
     </div>
   </div>
@@ -911,9 +894,7 @@ const DEFAULT_SCHEDULE = {
 };
 
 let students = [];
-let config = { teacherName: '', schoolName: '', directorate: '', academicYear: '', semester: '', levels: {}, schedule: {}, googleClientId: '', driveFileId: '' };
-let driveToken = null;
-let tokenClient = null;
+let config = { teacherName: '', schoolName: '', directorate: '', academicYear: '', semester: '', levels: {}, schedule: {} };
 let sessions = {};
 let currentView = null;
 let currentSection = 'أ';
@@ -1600,9 +1581,7 @@ function loadSettingsForm() {
   document.getElementById('cfgDirectorate').value = config.directorate || '';
   document.getElementById('cfgYear').value = config.academicYear || '';
   document.getElementById('cfgSemester').value = config.semester || 'الأول';
-  document.getElementById('cfgDriveClientId').value = config.googleClientId || '';
   renderLevelsManager();
-  updateDriveUI();
 }
 
 function saveSettings() {
@@ -1611,10 +1590,7 @@ function saveSettings() {
   config.directorate = document.getElementById('cfgDirectorate').value.trim();
   config.academicYear = document.getElementById('cfgYear').value.trim();
   config.semester = document.getElementById('cfgSemester').value;
-  config.googleClientId = document.getElementById('cfgDriveClientId').value.trim();
   saveConfig();
-  initGoogleAuth();
-  updateDriveUI();
 }
 
 function renderLevelsManager() {
@@ -2244,8 +2220,6 @@ function exportCSV() {
   showToast('تم تصدير ملف Excel بنجاح');
 }
 
-// --- Google Drive ---
-
 function exportBackup() {
   var bundle = {
     app: 'متابعة الطلبة',
@@ -2283,7 +2257,6 @@ function importBackup(event) {
     students = data.students;
     config = data.config;
     sessions = data.sessions;
-    if (typeof google !== 'undefined' && google.accounts) initGoogleAuth();
     normalizeStudentLevels();
     saveData();
     saveConfig();
@@ -2291,7 +2264,6 @@ function importBackup(event) {
     currentView = 'settings';
     currentSection = getSections(currentView)[0] || 'أ';
     if (typeof loadSettingsForm === 'function') loadSettingsForm();
-    updateDriveUI();
     renderAll();
     showToast('✅ تمت الاستعادة بنجاح');
   };
@@ -2299,173 +2271,8 @@ function importBackup(event) {
   reader.readAsText(file, 'UTF-8');
 }
 
-function initGoogleAuth() {
-  var cid = config.googleClientId;
-  if (!cid || typeof google === 'undefined' || !google.accounts) return;
-  if (tokenClient) return;
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: cid,
-    scope: 'https://www.googleapis.com/auth/drive.file',
-    callback: function(resp) {
-      if (resp.access_token) {
-        driveToken = resp.access_token;
-        localStorage.setItem('driveToken', driveToken);
-        updateDriveUI();
-        showToast('✅ تم تسجيل الدخول إلى Google Drive');
-      } else if (resp.error === 'id_token_or_access_token_parse_failed') {
-        driveToken = null;
-        localStorage.removeItem('driveToken');
-        updateDriveUI();
-      }
-    }
-  });
-  // استعادة التوكن المحفوظ + محاولة تجديده بصمت
-  var saved = localStorage.getItem('driveToken');
-  if (saved) {
-    driveToken = saved;
-    updateDriveUI();
-    // طلب توكن جديد بصمت (بدون نافذة منبثقة)
-    try { tokenClient.requestAccessToken({ prompt: 'none' }); } catch(e) {}
-  }
-}
-
-function driveLogin() {
-  if (!config.googleClientId) { showToast('الرجاء إدخال Client ID من الإعدادات', 'error'); return; }
-  if (typeof google === 'undefined' || !google.accounts) { showToast('مكتبة Google لم تحمل بعد، انتظر لحظة ثم حاول', 'error'); return; }
-  if (!tokenClient) initGoogleAuth();
-  if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
-}
-
-function driveLogout() {
-  if (driveToken) {
-    google.accounts.oauth2.revoke(driveToken, function() {});
-  }
-  driveToken = null;
-  localStorage.removeItem('driveToken');
-  updateDriveUI();
-  showToast('تم تسجيل الخروج');
-}
-
-function updateDriveUI() {
-  var loginBtn = document.getElementById('driveLoginBtn');
-  var logoutBtn = document.getElementById('driveLogoutBtn');
-  var status = document.getElementById('driveStatus');
-  if (!loginBtn) return;
-  if (driveToken) {
-    loginBtn.style.display = 'none';
-    logoutBtn.style.display = '';
-    status.textContent = '✅ متصل';
-  } else {
-    loginBtn.style.display = config.googleClientId ? '' : 'none';
-    logoutBtn.style.display = 'none';
-    status.textContent = config.googleClientId ? 'غير متصل' : 'أدخل Client ID أعلاه';
-  }
-}
-
-function driveRequest(method, path, body) {
-  var opts = {
-    method: method,
-    headers: { 'Authorization': 'Bearer ' + driveToken }
-  };
-  if (body) {
-    opts.headers['Content-Type'] = 'application/json';
-    opts.body = JSON.stringify(body);
-  }
-  return fetch('https://www.googleapis.com/drive/v3/' + path, opts);
-}
-
-function findOrCreateDriveFile() {
-  return driveRequest('GET', 'files?q=name%3D%27%D9%85%D8%AA%D8%A7%D8%A8%D8%B9%D8%A9_%D8%A7%D9%84%D8%B7%D9%84%D8%A7%D8%A8_%D8%A8%D9%8A%D8%A7%D9%86%D8%A7%D8%AA.json%27+and+trashed%3Dfalse&fields=files(id,name)')
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.files && data.files.length > 0) {
-        config.driveFileId = data.files[0].id;
-        return data.files[0].id;
-      }
-      return driveRequest('POST', 'files?fields=id', {
-        name: 'متابعة_الطلاب_بيانات.json',
-        mimeType: 'application/json'
-      }).then(function(r) { return r.json(); }).then(function(f) {
-        config.driveFileId = f.id;
-        saveConfig();
-        return f.id;
-      });
-    });
-}
-
-function saveToDrive() {
-  if (!driveToken) { showToast('الرجاء تسجيل الدخول أولاً', 'error'); return; }
-  showToast('جاري الحفظ إلى Drive...');
-  var payload = { students: students, sessions: sessions, config: config };
-  (config.driveFileId ? Promise.resolve(config.driveFileId) : findOrCreateDriveFile())
-    .then(function(fileId) {
-      return fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
-        method: 'PATCH',
-        headers: { 'Authorization': 'Bearer ' + driveToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    })
-    .then(function(r) {
-      if (r.status === 401) { handleTokenExpired(); throw new Error('انتهت صلاحية التوكن، سجل دخول مرة أخرى'); }
-      if (!r.ok) throw new Error('خطأ في الحفظ');
-      saveConfig();
-      showToast('✅ تم حفظ البيانات إلى Google Drive');
-    })
-    .catch(function(e) {
-      showToast('❌ فشل الحفظ: ' + e.message, 'error');
-    });
-}
-
-function handleTokenExpired() {
-  driveToken = null;
-  localStorage.removeItem('driveToken');
-  updateDriveUI();
-}
-
-function loadFromDrive() {
-  if (!driveToken) { showToast('الرجاء تسجيل الدخول أولاً', 'error'); return; }
-  if (!config.driveFileId) { showToast('لم يتم العثور على ملف في Drive، احفظ أولاً', 'error'); return; }
-  showToast('جاري التحميل من Drive...');
-  driveRequest('GET', 'files/' + config.driveFileId + '?alt=media')
-    .then(function(r) {
-      if (r.status === 401) { handleTokenExpired(); throw new Error('انتهت صلاحية التوكن، سجل دخول مرة أخرى'); }
-      if (!r.ok) throw new Error('تعذر تحميل الملف');
-      return r.json();
-    })
-    .then(function(data) {
-      if (data.students) students = data.students;
-      if (data.sessions) sessions = data.sessions;
-      if (data.config) {
-        config.teacherName = data.config.teacherName || '';
-        config.schoolName = data.config.schoolName || '';
-        config.directorate = data.config.directorate || '';
-        config.academicYear = data.config.academicYear || '';
-        config.semester = data.config.semester || '';
-        config.levels = data.config.levels || {};
-        config.schedule = data.config.schedule || {};
-      }
-      saveData();
-      saveSessions();
-      saveConfig();
-      renderAll();
-      showToast('✅ تم تحميل البيانات من Drive');
-    })
-    .catch(function(e) {
-      showToast('❌ فشل التحميل: ' + e.message, 'error');
-    });
-}
-
 loadData();
-initGoogleAuth();   // restore saved token BEFORE render
 renderAll();
-// Retry GIS init after library loads (async defer)
-var gisRetry = setInterval(function() {
-  if (typeof google !== 'undefined' && google.accounts) {
-    clearInterval(gisRetry);
-    if (!tokenClient) initGoogleAuth();
-    updateDriveUI();
-  }
-}, 500);
 </script>
 </body>
 </html>
