@@ -593,7 +593,7 @@ tr.absent:hover td { background: #fee2e2; }
   #paperArea .paper-sheet:last-child { page-break-after: auto; }
   #paperArea .paper-head { text-align: center; margin-bottom: 4px; }
   #paperArea .paper-head h2 { font-size: 17px; margin: 0 0 4px; color: #1e3a5f; }
-  #paperArea .paper-head .paper-meta { font-size: 10px; color: #334155; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 0 2px; }
+  #paperArea .paper-head .paper-meta { font-size: 10px; color: #334155; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 12px; padding: 0 2px; }
   #paperArea .paper-head .paper-title { font-size: 14px; color: #0c4a6e; font-weight: 700; margin: 6px 0 2px; border-bottom: 2px solid #334155; padding-bottom: 3px; }
   #paperArea table { width: 100%; min-width: 0 !important; border-collapse: collapse; font-size: 9px; }
   #paperArea thead { display: table-header-group; }
@@ -781,6 +781,26 @@ tr.absent:hover td { background: #fee2e2; }
     <div class="form-btns">
       <button class="btn btn-success" onclick="printPaperSheet()">🖨️ طباعة</button>
       <button class="btn btn-secondary" onclick="closePaperPrintModal()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="weekPrintModal">
+  <div class="modal" style="max-width:500px">
+    <h2>🖨️ طباعة كشف الأسبوع كامل</h2>
+    <p style="color:#64748b;margin-bottom:6px;font-size:13px;">يطبع تلقائياً كشفاً يومياً لكل شعبة موزّعة على الجدول في الفترة المحددة — دون الحاجة للدخول لكل شعبة على حدة.</p>
+    <p style="color:#94a3b8;margin-bottom:14px;font-size:12px;">سيُطبَع للشعب المحددة في كل يوم، بالحصة الأولى المقررة لكل شعبة في ذلك اليوم.</p>
+    <div class="form-group">
+      <label>الفترة <span style="font-weight:400;color:#94a3b8;">(من - إلى)</span></label>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <input type="date" id="weekFrom">
+        <span style="color:#94a3b8;">إلى</span>
+        <input type="date" id="weekTo">
+      </div>
+    </div>
+    <div class="form-btns">
+      <button class="btn btn-success" onclick="printWeekSheets()">🖨️ طباعة</button>
+      <button class="btn btn-secondary" onclick="closeWeekPrintModal()">إلغاء</button>
     </div>
   </div>
 </div>
@@ -1178,6 +1198,7 @@ function renderSchedule() {
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">' +
     '<select id="schedGridSlot" style="min-width:200px;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;"></select>' +
     '<button class="btn btn-secondary" onclick="showQuickSchedModal()">⚡ جدول شعبة سريع</button>' +
+    '<button class="btn btn-success" onclick="showWeekPrintModal()">🖨️ طباعة كشف الأسبوع</button>' +
     '<button class="btn btn-danger btn-sm" onclick="clearAllSchedule()">🗑️ تفريغ الجدول</button>' +
   '</div>' +
   '<div style="margin-bottom:6px;font-size:12px;color:#64748b;">💡 اختر الصف والشعبة من القائمة ثم اضغط خانة فارغة للإضافة. اضغط بالزر الأيمن على خانة لمسحها.</div>';
@@ -2062,6 +2083,64 @@ function populatePaperSections() {
   if (getSections(lvl).includes(currentSection)) secSel.value = currentSection;
 }
 
+function showWeekPrintModal() {
+  document.getElementById('weekPrintModal').classList.add('active');
+  document.getElementById('weekFrom').value = todayStr();
+  document.getElementById('weekTo').value = todayStr();
+}
+function closeWeekPrintModal() { document.getElementById('weekPrintModal').classList.remove('active'); }
+
+function printWeekSheets() {
+  var from = document.getElementById('weekFrom').value;
+  var to = document.getElementById('weekTo').value;
+  if (!from || !to) { showToast('الرجاء تحديد الفترة', 'error'); return; }
+  if (from > to) { showToast('تاريخ البداية بعد تاريخ النهاية', 'error'); return; }
+
+  var html = '<div id="paperArea">';
+  var totalSheets = 0;
+  var totalStudents = 0;
+  var cur = new Date(from + 'T00:00:00');
+  var end = new Date(to + 'T00:00:00');
+  while (cur <= end) {
+    var y = cur.getFullYear();
+    var m = ('0' + (cur.getMonth() + 1)).slice(-2);
+    var d = ('0' + cur.getDate()).slice(-2);
+    var dateStr = y + '-' + m + '-' + d;
+    var dayName = DAYS[cur.getDay()];
+    var daySchedule = config.schedule[dayName] || {};
+
+    var sectionsPrinted = {};
+    Object.keys(daySchedule).sort(function(a, b) { return +a - +b; }).forEach(function(period) {
+      var slot = daySchedule[period];
+      if (!slot || slot === 'free') return;
+      var parts = slotToParts(slot);
+      if (!parts || !parts.level) return;
+      var key = parts.level + '::' + parts.section;
+      if (sectionsPrinted[key]) return;
+      sectionsPrinted[key] = true;
+      var list = students.filter(function(s) { return s.level === parts.level && s.section === parts.section; });
+      if (!list.length) return;
+      html += sheetHtml(parts.level, parts.section, list, dateStr, +period);
+      totalSheets++;
+      totalStudents += list.length;
+    });
+    cur.setDate(cur.getDate() + 1);
+  }
+  html += '</div>';
+
+  if (!totalSheets) {
+    showToast('لا توجد شعب محددة في الجدول ضمن هذه الفترة', 'error');
+    return;
+  }
+
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  window.print();
+  document.body.removeChild(div);
+  showToast('تم إرسال ' + totalSheets + ' كشفاً (' + totalStudents + ' طالباً) للطباعة');
+}
+
 function printPaperSheet() {
   var level = document.getElementById('paperLevel').value;
   var section = document.getElementById('paperSection').value;
@@ -2096,13 +2175,13 @@ function printPaperSheet() {
   showToast('تم إرسال الكشف للطباعة');
 }
 
-function sheetHtml(level, section, list, date) {
+function sheetHtml(level, section, list, date, period) {
   var meta = [];
   if (config.directorate) meta.push('المديرية: ' + escapeHtml(config.directorate));
   if (config.schoolName) meta.push('المدرسة: ' + escapeHtml(config.schoolName));
   if (config.academicYear) meta.push('العام: ' + escapeHtml(config.academicYear));
   if (config.semester) meta.push('الفصل: ' + escapeHtml(config.semester));
-  var teacherLine = config.teacherName ? 'المعلم/ة: ______________' : '';
+  var teacherLine = config.teacherName ? 'المعلم/ة: ' + escapeHtml(config.teacherName) : '';
   var html = '<div class="paper-sheet">';
   html += '<div class="paper-head">';
   html += '<h2>' + escapeHtml(config.schoolName || 'متابعة الطلاب') + '</h2>';
@@ -2110,7 +2189,7 @@ function sheetHtml(level, section, list, date) {
   html += '<div class="paper-title">' + escapeHtml(level) + ' - شعبة ' + escapeHtml(section) + '</div>';
   html += '<div class="paper-meta" style="margin-top:3px;">' +
     '<span>التاريخ: ' + date + '</span>' +
-    '<span>الحصة: ____________</span>' +
+    '<span>الحصة: ' + (period ? ('ح' + period) : '____________') + '</span>' +
     (teacherLine ? '<span>' + teacherLine + '</span>' : '') +
     '</div>';
   html += '</div>';
