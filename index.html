@@ -2872,18 +2872,18 @@ function syncTokenLive() {
 function syncTest() {
   if (!syncConf.token) { showToast('أدخل الـ GitHub Token أولاً', 'error'); return; }
   updateSyncStatus('جارِ فحص الاتصال...');
-  fetch(GIST_API, { headers: gistHeaders() })
+  fetch('https://api.github.com/user', { headers: gistHeaders() })
     .then(function(r) { return r.json(); })
     .then(function(j) {
       if (j && j.login) {
         syncConf.enabled = true;
         saveSyncConf();
         ensureGistId().then(function(gid) {
-          updateSyncStatus('متصل بحساب: ' + j.login + (gid ? ' (Gist: ' + gid + ')' : ' (لا توجد نسخة سحابية بعد - ستُنشأ عند أول مزامنة)'));
+          updateSyncStatus('متصل بحساب: ' + j.login + (gid ? ' - النسخة السحابية: ' + gid : ' - لا توجد نسخة سحابية بعد، اضغط "مزامنة الآن" لإنشائها'));
         });
         showToast('✅ الاتصال بخدمة GitHub ناجح');
       } else {
-        updateSyncStatus('فشل الاتصال: ' + (j.message || 'خطأ'));
+        updateSyncStatus('فشل الاتصال: ' + (j.message || 'اصلح الـ Token ثم أعد الفحص'));
         showToast('⚠️ تحقق من الـ Token', 'error');
       }
     })
