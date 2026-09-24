@@ -1775,6 +1775,7 @@ function addLevel() {
 function removeLevel(name) {
   var count = students.filter(function(s) { return s.level === name; }).length;
   if (!confirm(count ? 'هذا الصف يحتوي على ' + count + ' طالب. هل تريد حذف الصف وجميع طلابه؟' : 'هل تريد حذف الصف "' + name + '"؟')) return;
+  students.forEach(function(s) { if (s.level === name) tombstoneId(s.id); });
   students = students.filter(function(s) { return s.level !== name; });
   delete config.levels[name];
   Object.keys(sessions).forEach(function(k) {
@@ -2771,14 +2772,18 @@ function mergeAll(remote) {
   if (remote.config) {
     if (remote.config.levels) {
       Object.keys(remote.config.levels).forEach(function(l) {
+        var arr = remote.config.levels[l];
+        if (!Array.isArray(arr)) return;
         if (!config.levels[l]) {
           changed = true;
-          config.levels[l] = remote.config.levels[l].slice();
-        } else {
-          remote.config.levels[l].forEach(function(sec) {
-            if (!config.levels[l].includes(sec)) { changed = true; config.levels[l].push(sec); }
-          });
+          config.levels[l] = arr.slice();
+        } else if (JSON.stringify(config.levels[l]) !== JSON.stringify(arr)) {
+          changed = true;
+          config.levels[l] = arr.slice();
         }
+      });
+      Object.keys(config.levels).forEach(function(l) {
+        if (!remote.config.levels[l]) { changed = true; delete config.levels[l]; }
       });
     }
     ['teacherName','schoolName','directorate','academicYear','semester'].forEach(function(f) {
