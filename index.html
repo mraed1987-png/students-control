@@ -768,7 +768,7 @@ tr.absent:hover td { background: #fee2e2; }
         </p>
         <div class="form-group">
           <label>الرمز المميز GitHub Token <span style="font-weight:400;color:#94a3b8;">(صلاحية gist فقط)</span></label>
-          <input type="password" id="syncToken" onchange="saveSyncSettings()" placeholder="ghp_xxxxxxxxxxxxxxxxxx" autocomplete="off" style="direction:ltr;text-align:left;">
+          <input type="password" id="syncToken" oninput="syncTokenLive()" onchange="saveSyncSettings()" placeholder="ghp_xxxxxxxxxxxxxxxxxx" autocomplete="off" style="direction:ltr;text-align:left;">
         </div>
         <div class="form-group">
           <label>حالة المزامنة</label>
@@ -2755,37 +2755,78 @@ function mergeAll(remote) {
   if (changed) { syncConf.lastSyncAt = new Date().toISOString(); saveSyncConf(); }
   return changed;
 }
+function findBestGist() {
+  return fetch(GIST_API + '?per_page=100', { headers: gistHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(list) {
+      if (!Array.isArray(list)) return null;
+      var candidates = list.filter(function(g) { return g.files && g.files[GIST_FILE]; });
+      if (!candidates.length) return null;
+      return Promise.all(candidates.map(function(c) {
+        return fetch(GIST_API + '/' + c.id, { headers: gistHeaders() })
+          .then(function(r) { return r.json(); })
+          .then(function(gd) {
+            var content = (gd.files && gd.files[GIST_FILE] && gd.files[GIST_FILE].content) || '';
+            var score = 0;
+            try {
+              var rem = JSON.parse(content);
+              if (rem) score = (Array.isArray(rem.students) ? rem.students.length : 0) + (rem.sessions ? Object.keys(rem.sessions).length : 0);
+            } catch(e) { score = 0; }
+            return { id: gd.id, updated: gd.updated_at || '', score: score };
+          })
+          .catch(function() { return null; });
+      })).then(function(infos) {
+        var valid = infos.filter(function(x) { return x && x.id; });
+        if (!valid.length) return null;
+        valid.sort(function(a, b) {
+          if (a.score !== b.score) return b.score - a.score;
+          return (b.updated < a.updated ? -1 : 1);
+        });
+        return valid[0].id;
+      });
+    })
+    .catch(function() { return null; });
+}
+function ensureGistId() {
+  if (syncConf.gistId) return Promise.resolve(syncConf.gistId);
+  return findBestGist().then(function(gid) {
+    if (gid) { syncConf.gistId = gid; saveSyncConf(); }
+    return gid;
+  });
+}
 function cloudPush() {
   return new Promise(function(resolve, reject) {
     if (!syncConf.token) { reject(new Error('لا يوجد Token')); return; }
     var bundle = buildBundle();
     var payload = { description: 'بيانات متابعة الطلاب - مزامنة تلقائية', files: {} };
     payload.files[GIST_FILE] = { content: JSON.stringify(bundle) };
-    var url = GIST_API, method = 'POST';
-    if (syncConf.gistId) { url = GIST_API + '/' + syncConf.gistId; method = 'PATCH'; }
-    else payload.public = false;
-    fetch(url, { method: method, headers: gistHeaders(), body: JSON.stringify(payload) })
-      .then(function(r) {
-        return r.json().then(function(j) { return { status: r.status, json: j }; });
-      })
-      .then(function(res) {
-        if (res.status >= 400) {
-          var msg = (res.json && res.json.message) || ('HTTP ' + res.status);
-          if (res.status === 404) { syncConf.gistId = ''; saveSyncConf(); }
-          reject(new Error(msg));
-          return;
-        }
-        syncConf.gistId = syncConf.gistId || res.json.id;
-        syncConf.lastSyncAt = new Date().toISOString();
-        saveSyncConf();
-        resolve(true);
-      })
-      .catch(function(err) { reject(err); });
+    ensureGistId().then(function(gid) {
+      var url = GIST_API, method = 'POST';
+      if (gid) { url = GIST_API + '/' + gid; method = 'PATCH'; }
+      else payload.public = false;
+      fetch(url, { method: method, headers: gistHeaders(), body: JSON.stringify(payload) })
+        .then(function(r) {
+          return r.json().then(function(j) { return { status: r.status, json: j }; });
+        })
+        .then(function(res) {
+          if (res.status >= 400) {
+            var msg = (res.json && res.json.message) || ('HTTP ' + res.status);
+            if (res.status === 404) { syncConf.gistId = ''; saveSyncConf(); }
+            reject(new Error(msg));
+            return;
+          }
+          syncConf.gistId = syncConf.gistId || res.json.id;
+          syncConf.lastSyncAt = new Date().toISOString();
+          saveSyncConf();
+          resolve(true);
+        })
+        .catch(function(err) { reject(err); });
+    }).catch(function(err) { reject(err); });
   });
 }
 function cloudPull(withRender) {
   return new Promise(function(resolve) {
-    if (!syncConf.token || !syncConf.gistId) { resolve(false); return; }
+    if (!syncConf.token) { resolve(false); return; }
     function parseAndMerge(text) {
       var remote;
       try { remote = JSON.parse(text); } catch(e) { resolve(false); return; }
@@ -2797,26 +2838,36 @@ function cloudPull(withRender) {
       }
       resolve(changed);
     }
-    fetch(GIST_API + '/' + syncConf.gistId, { headers: gistHeaders() })
-      .then(function(r) {
-        if (r.status === 404) { syncConf.gistId = ''; saveSyncConf(); resolve(false); return null; }
-        if (r.status >= 400) { resolve(false); return null; }
-        return r.json();
-      })
-      .then(function(g) {
-        if (!g) return;
-        var file = g.files && g.files[GIST_FILE];
-        if (!file) { resolve(false); return; }
-        if (file.content !== undefined && file.content !== '') { parseAndMerge(file.content); }
-        else if (file.raw_url) {
-          fetch(file.raw_url, { headers: gistHeaders() })
-            .then(function(r) { return r.text(); })
-            .then(parseAndMerge)
-            .catch(function() { resolve(false); });
-        } else { resolve(false); }
-      })
-      .catch(function() { resolve(false); });
+    function doPull(gid) {
+      if (!gid) { resolve(false); return; }
+      fetch(GIST_API + '/' + gid, { headers: gistHeaders() })
+        .then(function(r) {
+          if (r.status === 404) { resolve(false); return null; }
+          if (r.status >= 400) { resolve(false); return null; }
+          return r.json();
+        })
+        .then(function(g) {
+          if (!g) return;
+          var file = g.files && g.files[GIST_FILE];
+          if (!file) { resolve(false); return; }
+          if (file.content !== undefined && file.content !== '') { parseAndMerge(file.content); }
+          else if (file.raw_url) {
+            fetch(file.raw_url, { headers: gistHeaders() })
+              .then(function(r) { return r.text(); })
+              .then(parseAndMerge)
+              .catch(function() { resolve(false); });
+          } else { resolve(false); }
+        })
+        .catch(function() { resolve(false); });
+    }
+    ensureGistId().then(doPull);
   });
+}
+function syncTokenLive() {
+  syncConf.token = (document.getElementById('syncToken').value || '').trim();
+  if (syncConf.token) syncConf.enabled = true;
+  else { syncConf.enabled = false; syncConf.gistId = ''; }
+  saveSyncConf();
 }
 function syncTest() {
   if (!syncConf.token) { showToast('أدخل الـ GitHub Token أولاً', 'error'); return; }
@@ -2827,7 +2878,9 @@ function syncTest() {
       if (j && j.login) {
         syncConf.enabled = true;
         saveSyncConf();
-        updateSyncStatus('متصل بحساب: ' + j.login + (syncConf.gistId ? ' (Gist: ' + syncConf.gistId + ')' : ''));
+        ensureGistId().then(function(gid) {
+          updateSyncStatus('متصل بحساب: ' + j.login + (gid ? ' (Gist: ' + gid + ')' : ' (لا توجد نسخة سحابية بعد - ستُنشأ عند أول مزامنة)'));
+        });
         showToast('✅ الاتصال بخدمة GitHub ناجح');
       } else {
         updateSyncStatus('فشل الاتصال: ' + (j.message || 'خطأ'));
@@ -2867,7 +2920,7 @@ function scheduleAutoPush() {
   }, 3000);
 }
 function autoPullOnLoad() {
-  if (!syncConf.token || !syncConf.gistId) return;
+  if (!syncConf.token) return;
   cloudPull(false).then(function(changed) {
     if (changed) { saveAllLocal(); renderAll(); }
   });
