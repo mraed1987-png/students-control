@@ -228,6 +228,36 @@ tr.absent:hover td { background: #fee2e2; }
 .att-btn.muted { opacity: 0.4; }
 .att-btn.muted:hover { opacity: 0.8; }
 
+.att-all {
+  padding: 2px 7px;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  color: white;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.att-all:hover { transform: translateY(-1px); }
+.att-all.present { background: #10b981; }
+.att-all.present:hover { background: #059669; }
+.att-all.absent { background: #ef4444; }
+.att-all.absent:hover { background: #dc2626; }
+
+.abs-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.abs-badge.warn { background: #fef3c7; color: #b45309; border: 1px solid #f59e0b; }
+.abs-badge.danger { background: #fee2e2; color: #b91c1c; border: 1px solid #ef4444; }
+
 .grade-input, .behavior-input, .hw-input {
   width: 60px;
   padding: 5px 4px;
@@ -549,6 +579,7 @@ tr.absent:hover td { background: #fee2e2; }
 }
 
 .reports-container { padding: 20px; }
+.all-students-view { padding: 20px; }
 .reports-filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 20px; background: white; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
 .reports-filters .form-group { margin-bottom: 0; }
 .reports-filters select, .reports-filters .form-group select { padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; background: white; }
@@ -649,7 +680,13 @@ tr.absent:hover td { background: #fee2e2; }
             <th style="width:36px">#</th>
             <th style="text-align:right">اسم الطالب</th>
             <th style="width:110px">الرقم الوطني</th>
-            <th style="width:100px">الحضور</th>
+            <th style="width:110px">الحضور
+              <div style="font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px;">تحديد الكل</div>
+              <div style="display:flex;gap:3px;justify-content:center;margin-top:4px;">
+                <button class="att-all present" onclick="setAllAttendance('present')" title="تحديد جميع الطلاب حاضر">✓ حاضر</button>
+                <button class="att-all absent" onclick="setAllAttendance('absent')" title="تحديد جميع الطلاب غائب">✗ غائب</button>
+              </div>
+            </th>
             <th style="width:90px">السلوك (1-5)</th>
             <th style="width:90px">الانضباط (1-5)</th>
             <th style="width:60px">الكتاب</th>
@@ -669,6 +706,8 @@ tr.absent:hover td { background: #fee2e2; }
     <div class="schedule-view" id="scheduleView" style="display:none"></div>
 
     <div class="reports-container" id="reportsView" style="display:none"></div>
+
+    <div class="all-students-view" id="allStudentsView" style="display:none"></div>
 
     <div class="settings-panel" id="settingsPanel" style="display:none">
       <div class="settings-section">
@@ -920,6 +959,7 @@ let currentView = null;
 let currentSection = 'أ';
 let currentSessDate = '';
 let currentPeriod = 1;
+const ABSENCE_WARN = 3;
 
 function sessKey(date, period, level, section) {
   return date + '_' + period + '_' + level + '_' + section;
@@ -1037,12 +1077,12 @@ function loadData() {
   const savedView = localStorage.getItem(STORAGE_KEY + '_view');
   const savedSection = localStorage.getItem(STORAGE_KEY + '_section');
   const levels = getLevels();
-  if (savedView === 'settings' || savedView === 'schedule' || savedView === 'reports') currentView = savedView;
+  if (savedView === 'settings' || savedView === 'schedule' || savedView === 'reports' || savedView === 'all') currentView = savedView;
   else if (savedView && levels.includes(savedView)) currentView = savedView;
   else currentView = levels.length ? levels[0] : 'settings';
 
   currentSection = savedSection || (getSections(currentView).length ? getSections(currentView)[0] : 'أ');
-  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports') {
+  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all') {
     const secs = getSections(currentView);
     if (!secs.includes(currentSection)) currentSection = secs.length ? secs[0] : 'أ';
   }
@@ -1094,6 +1134,12 @@ function switchToSchedule() {
   renderAll();
 }
 
+function switchToAll() {
+  currentView = 'all';
+  saveData();
+  renderAll();
+}
+
 function goToClass(slot, period) {
   if (!slot || slot === 'free') return;
   var p = slotToParts(slot);
@@ -1123,6 +1169,8 @@ function renderAll() {
     toolbar.style.display = 'none';
     secTabs.style.display = 'none';
     if (schedDiv) schedDiv.style.display = 'none';
+    var allDivHide = document.getElementById('allStudentsView');
+    if (allDivHide) allDivHide.style.display = 'none';
     loadSettingsForm();
   } else if (currentView === 'schedule') {
     if (schedDiv) schedDiv.style.display = '';
@@ -1132,6 +1180,8 @@ function renderAll() {
     wrap.style.display = 'none';
     toolbar.style.display = 'none';
     secTabs.style.display = 'none';
+    var allDivHide2 = document.getElementById('allStudentsView');
+    if (allDivHide2) allDivHide2.style.display = 'none';
     renderSchedule();
   } else if (currentView === 'reports') {
     if (schedDiv) schedDiv.style.display = 'none';
@@ -1141,11 +1191,26 @@ function renderAll() {
     wrap.style.display = 'none';
     toolbar.style.display = 'none';
     secTabs.style.display = 'none';
+    var allDiv = document.getElementById('allStudentsView');
+    if (allDiv) allDiv.style.display = 'none';
     renderReports();
+  } else if (currentView === 'all') {
+    if (schedDiv) schedDiv.style.display = 'none';
+    var rptDiv2 = document.getElementById('reportsView');
+    if (rptDiv2) rptDiv2.style.display = 'none';
+    panel.style.display = 'none';
+    wrap.style.display = 'none';
+    toolbar.style.display = 'none';
+    secTabs.style.display = 'none';
+    var allDiv2 = document.getElementById('allStudentsView');
+    if (allDiv2) allDiv2.style.display = '';
+    renderAllStudents();
   } else {
     if (schedDiv) schedDiv.style.display = 'none';
     var rptDiv = document.getElementById('reportsView');
     if (rptDiv) rptDiv.style.display = 'none';
+    var allDivElse = document.getElementById('allStudentsView');
+    if (allDivElse) allDivElse.style.display = 'none';
     panel.style.display = 'none';
     wrap.style.display = '';
     toolbar.style.display = '';
@@ -1164,11 +1229,12 @@ function renderTabs() {
     var count = students.filter(function(s) { return s.level === l; }).length;
     return '<button class="level-tab' + (currentView === l ? ' active' : '') + '" onclick="switchLevel(\'' + safeStr(l) + '\')">' + l + ' <span class="badge">' + count + '</span></button>';
   }).join('') +
+  '<button class="level-tab' + (currentView === 'all' ? ' active' : '') + '" onclick="switchToAll()">👥 جميع الطلاب <span class="badge">' + students.length + '</span></button>' +
   '<button class="level-tab' + (currentView === 'schedule' ? ' active' : '') + '" onclick="switchToSchedule()">📋 جدولي</button>' +
   '<button class="level-tab' + (currentView === 'reports' ? ' active' : '') + '" onclick="switchToReports()">📊 تقارير</button>' +
   '<button class="level-tab settings-tab' + (currentView === 'settings' ? ' active' : '') + '" onclick="switchToSettings()">⚙️</button>';
 
-  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports') {
+  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all') {
     var secs = getSections(currentView);
     document.getElementById('sectionTabs').innerHTML = secs.map(function(sec) {
       var count = students.filter(function(s) { return s.level === currentView && s.section === sec; }).length;
@@ -1267,7 +1333,7 @@ function showQuickSchedModal() {
   document.getElementById('quickSchedModal').classList.add('active');
   var lvl = document.getElementById('quickLevel');
   lvl.innerHTML = getLevels().map(function(l) { return '<option value="' + safeStr(l) + '">' + l + '</option>'; }).join('');
-  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports') lvl.value = currentView;
+  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all') lvl.value = currentView;
   updateQuickSections();
   syncQuickDays();
 }
@@ -1716,7 +1782,7 @@ function showAddModal() {
   var levelSel = document.getElementById('newStudentLevel');
   var levels = getLevels();
   levelSel.innerHTML = levels.map(function(l) { return '<option value="' + l + '">' + l + '</option>'; }).join('');
-  if (currentView !== 'settings' && currentView !== 'reports') levelSel.value = currentView;
+  if (currentView !== 'settings' && currentView !== 'reports' && currentView !== 'all') levelSel.value = currentView;
   updateSectionSelect();
   setTimeout(function() { document.getElementById('newStudentName').focus(); }, 100);
 }
@@ -1725,7 +1791,7 @@ function updateSectionSelect() {
   var secSel = document.getElementById('newStudentSection');
   var secs = getSections(level);
   secSel.innerHTML = secs.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
-  if (currentView !== 'settings' && currentView !== 'reports' && currentSection && secs.includes(currentSection)) secSel.value = currentSection;
+  if (currentView !== 'settings' && currentView !== 'reports' && currentView !== 'all' && currentSection && secs.includes(currentSection)) secSel.value = currentSection;
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -1797,6 +1863,11 @@ function moveStudent() {
   s.section = newSection;
   saveData();
   closeModal('moveModal');
+  if (currentView === 'all') {
+    renderAllStudents();
+    showToast('تم نقل الطالب بنجاح');
+    return;
+  }
   if (currentView !== newLevel) {
     currentView = newLevel;
     currentSection = newSection;
@@ -1814,7 +1885,7 @@ function showImportModal() {
   var levelSel = document.getElementById('importLevel');
   var levels = getLevels();
   levelSel.innerHTML = levels.map(function(l) { return '<option value="' + l + '">' + l + '</option>'; }).join('');
-  if (currentView !== 'settings' && currentView !== 'reports') levelSel.value = currentView;
+  if (currentView !== 'settings' && currentView !== 'reports' && currentView !== 'all') levelSel.value = currentView;
   document.getElementById('importData').value = '';
   setTimeout(function() { document.getElementById('importData').focus(); }, 100);
 }
@@ -1910,7 +1981,7 @@ function updateField(id, field, value) {
     value = ('' + value).trim();
     if (value) {
       var dup = students.find(function(other) { return other.id !== id && other.nationalId == value; });
-      if (dup) { showToast('هذا الرقم الوطني مسجل لطالب آخر: ' + dup.name, 'error'); renderTable(); return; }
+      if (dup) { showToast('هذا الرقم الوطني مسجل لطالب آخر: ' + dup.name, 'error'); if (currentView === 'all') renderAllStudents(); else renderTable(); return; }
     }
     st.nationalId = value;
     saveData();
@@ -1923,19 +1994,79 @@ function updateField(id, field, value) {
 function setAttendance(id, status) {
   var rec = getSessRec(id);
   rec.attendance = status;
+  debouncedPersist('sessions');
   renderTable();
 }
 
 function setBook(id, val) {
   var rec = getSessRec(id);
   rec.book = rec.book === val ? '' : val;
+  debouncedPersist('sessions');
   renderTable();
 }
 
 function setHomework(id, val) {
   var rec = getSessRec(id);
   rec.homework = rec.homework === val ? '' : val;
+  debouncedPersist('sessions');
   renderTable();
+}
+
+var _autoSaveTimers = {};
+function debouncedPersist(which) {
+  clearTimeout(_autoSaveTimers[which]);
+  _autoSaveTimers[which] = setTimeout(function() {
+    if (which === 'students') saveData();
+    else if (which === 'sessions') saveSessions();
+  }, 500);
+}
+
+function updateLiveName(id, value) {
+  var s = students.find(function(st) { return st.id === id; });
+  if (s) s.name = value;
+  debouncedPersist('students');
+}
+
+function liveNationalId(id, value) {
+  var st = students.find(function(s) { return s.id === id; });
+  if (!st || st.nationalId === value) return;
+  st.nationalId = value;
+  debouncedPersist('students');
+}
+
+function updateLiveRec(id, field, value) {
+  updateField(id, field, value);
+  debouncedPersist('sessions');
+}
+
+function absenceCountMonth(s) {
+  if (!sessions || !s) return 0;
+  var prefix = (currentSessDate && currentSessDate.length >= 7) ? currentSessDate.slice(0, 7) : todayStr().slice(0, 7);
+  var count = 0;
+  Object.keys(sessions).forEach(function(k) {
+    var p = k.split('_');
+    if (p.length !== 4) return;
+    if (p[0].indexOf(prefix) !== 0) return;
+    if (p[2] !== s.level || p[3] !== s.section) return;
+    var rec = sessions[k].records && sessions[k].records[s.id];
+    if (rec && rec.attendance === 'absent') count++;
+  });
+  return count;
+}
+
+function setAllAttendance(status) {
+  var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
+  if (!sessions[sk]) sessions[sk] = { records: {} };
+  sessions[sk].records = sessions[sk].records || {};
+  var list = students.filter(function(s) { return s.level === currentView && s.section === currentSection; });
+  if (!list.length) { showToast('لا يوجد طلاب في هذه الشعبة', 'error'); return; }
+  list.forEach(function(s) {
+    var rec = sessions[sk].records[s.id] || (sessions[sk].records[s.id] = {});
+    rec.attendance = status;
+  });
+  saveSessions();
+  renderTable();
+  showToast(status === 'present' ? 'تم تحديد جميع الطلاب حاضر' : 'تم تحديد جميع الطلاب غائب');
 }
 
 function saveSession() {
@@ -2009,17 +2140,23 @@ function renderTable() {
       var nameDup = nameCount[s.name.trim().toLowerCase()] > 1;
       var natVal = (s.nationalId || '').trim();
       var natDup = natVal && natCount[natVal] > 1;
+      var absCount = absenceCountMonth(s);
+      var absBadge = '';
+      if (absCount > ABSENCE_WARN) absBadge = '<span class="abs-badge danger" title="غياب متكرر هذا الشهر: ' + absCount + ' حصص">غياب ' + absCount + '</span>';
+      else if (absCount === ABSENCE_WARN) absBadge = '<span class="abs-badge warn" title="' + absCount + ' غيابات هذا الشهر - يجب المتابعة">غياب ' + absCount + '</span>';
       return '<tr ' + rowClass + '>' +
         '<td>' + (i + 1) + '</td>' +
-        '<td style="text-align:right"><input class="student-name-input' + (nameDup ? ' dup-name' : '') + '" value="' + escapeHtml(s.name) + '" title="' + (nameDup ? '⚠️ يوجد طلاب بنفس الاسم - أدخل الرقم الوطني للتمييز' : '') + '" onchange="updateField(' + s.id + ',\'name\',this.value)" onfocus="this.select()"></td>' +
-        '<td><input class="national-id-input' + (natDup ? ' dup' : '') + '" value="' + escapeHtml(natVal) + '" title="' + (natDup ? '⚠️ رقم وطني مكرر لهذا الاسم' : '') + '" onchange="updateField(' + s.id + ',\'nationalId\',this.value)" onfocus="this.select()" maxlength="11"></td>' +
+        '<td style="text-align:right"><div style="display:flex;align-items:center;justify-content:flex-start;gap:4px;">' +
+          '<input class="student-name-input' + (nameDup ? ' dup-name' : '') + '" value="' + escapeHtml(s.name) + '" title="' + (nameDup ? '⚠️ يوجد طلاب بنفس الاسم - أدخل الرقم الوطني للتمييز' : '') + '" oninput="updateLiveName(' + s.id + ',this.value)" onfocus="this.select()" style="flex:1;min-width:0;">' + absBadge +
+        '</div></td>' +
+        '<td><input class="national-id-input' + (natDup ? ' dup' : '') + '" value="' + escapeHtml(natVal) + '" title="' + (natDup ? '⚠️ رقم وطني مكرر لهذا الاسم' : '') + '" oninput="liveNationalId(' + s.id + ',this.value)" onchange="updateField(' + s.id + ',\'nationalId\',this.value)" onfocus="this.select()" maxlength="11"></td>' +
         '<td><div class="attendance-btns">' +
           '<button class="att-btn present' + (att === 'present' ? '' : ' muted') + '" onclick="setAttendance(' + s.id + ',\'present\')" title="حاضر">✓</button>' +
           '<button class="att-btn absent' + (att === 'absent' ? '' : ' muted') + '" onclick="setAttendance(' + s.id + ',\'absent\')" title="غائب">✗</button>' +
           '<button class="att-btn late' + (att === 'late' ? '' : ' muted') + '" onclick="setAttendance(' + s.id + ',\'late\')" title="متأخر">◷</button>' +
         '</div></td>' +
-        '<td><input class="grade-input" type="number" min="1" max="5" value="' + (rec.behavior || '') + '" onchange="updateField(' + s.id + ',\'behavior\',this.value)" onfocus="this.select()" style="width:50px"></td>' +
-        '<td><input class="grade-input" type="number" min="1" max="5" value="' + (rec.discipline || '') + '" onchange="updateField(' + s.id + ',\'discipline\',this.value)" onfocus="this.select()" style="width:50px"></td>' +
+        '<td><input class="grade-input" type="number" min="1" max="5" value="' + (rec.behavior || '') + '" oninput="updateLiveRec(' + s.id + ',\'behavior\',this.value)" onfocus="this.select()" style="width:50px"></td>' +
+        '<td><input class="grade-input" type="number" min="1" max="5" value="' + (rec.discipline || '') + '" oninput="updateLiveRec(' + s.id + ',\'discipline\',this.value)" onfocus="this.select()" style="width:50px"></td>' +
         '<td><div class="attendance-btns">' +
           '<button class="att-btn present' + (rec.book === 'yes' ? '' : ' muted') + '" onclick="setBook(' + s.id + ',\'yes\')" title="نعم">✓</button>' +
           '<button class="att-btn absent' + (rec.book === 'no' ? '' : ' muted') + '" onclick="setBook(' + s.id + ',\'no\')" title="لا">✗</button>' +
@@ -2028,7 +2165,7 @@ function renderTable() {
           '<button class="att-btn present' + (rec.homework === 'yes' ? '' : ' muted') + '" onclick="setHomework(' + s.id + ',\'yes\')" title="نعم">✓</button>' +
           '<button class="att-btn absent' + (rec.homework === 'no' ? '' : ' muted') + '" onclick="setHomework(' + s.id + ',\'no\')" title="لا">✗</button>' +
         '</div></td>' +
-        '<td><input class="notes-input" value="' + (rec.notes || '') + '" onchange="updateField(' + s.id + ',\'notes\',this.value)" onfocus="this.select()" placeholder="..." maxlength="50"></td>' +
+        '<td><input class="notes-input" value="' + (rec.notes || '') + '" oninput="updateLiveRec(' + s.id + ',\'notes\',this.value)" onfocus="this.select()" placeholder="..." maxlength="50"></td>' +
         '<td><div class="action-btns"><button class="btn btn-sm" style="background:#e2e8f0;color:#475569" onclick="showMoveModal(' + s.id + ')" title="نقل">🚚</button><button class="btn btn-danger btn-sm" onclick="deleteStudent(' + s.id + ')">✕</button></div></td>' +
       '</tr>';
     }).join('');
@@ -2059,15 +2196,164 @@ function updateStats() {
     '<span class="stat-item"><span class="stat-dot yellow"></span> ' + late + '</span>';
 }
 
+function renderAllStudents() {
+  var search = (document.getElementById('allSearchInput') ? document.getElementById('allSearchInput').value : '').trim().toLowerCase();
+  var levels = getLevels();
+  var filtered = students.filter(function(s) {
+    if (search && s.name.toLowerCase().indexOf(search) === -1 && (s.nationalId || '').toString().toLowerCase().indexOf(search) === -1) return false;
+    return true;
+  });
+  filtered.sort(function(a, b) {
+    var li = levels.indexOf(a.level), lj = levels.indexOf(b.level);
+    if (li !== lj) return li - lj;
+    if (a.section !== b.section) return (a.section < b.section ? -1 : 1);
+    return a.name.localeCompare(b.name, 'ar');
+  });
+
+  var summary = levels.map(function(l) {
+    var c = students.filter(function(s) { return s.level === l; }).length;
+    return '<span style="background:#eef2f7;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;color:#334155;">' + l + ': ' + c + ' طالب</span>';
+  }).join(' ');
+
+  var html = '<h2 style="font-size:18px;color:#1e3a5f;margin-bottom:14px;">👥 جميع الطلاب <span style="font-size:13px;color:#94a3b8;font-weight:400;">(' + students.length + ' طالب)</span></h2>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">' +
+    '<input type="text" id="allSearchInput" value="' + escapeHtml(document.getElementById('allSearchInput') ? document.getElementById('allSearchInput').value : '') + '" placeholder="🔍 بحث بالاسم أو الرقم الوطني..." oninput="renderAllStudents()" style="flex:1;min-width:200px;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">' +
+    '<button class="btn btn-secondary" onclick="exportAllStudentsCSV()">📤 تصدير Excel</button>' +
+    '<button class="btn btn-sm" style="background:#0ea5e9;color:white" onclick="printAllStudents()">🖨️ طباعة الكشف</button>' +
+  '</div>';
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">' + summary + '</div>';
+
+  if (!filtered.length) {
+    html += '<div style="background:white;border-radius:12px;padding:30px;text-align:center;color:#94a3b8;">لا يوجد طلاب مطابقون للبحث.</div>';
+  } else {
+    var levelColors = {};
+    levels.forEach(function(l, i) { levelColors[l] = ['#1e3a5f', '#0e7490', '#6d28d9', '#be185d', '#b45309', '#065f46', '#9d174d', '#3f6212'][i % 8]; });
+
+    html += '<div style="overflow-x:auto;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += '<thead><tr style="background:#1e3a5f;color:white;">' +
+      '<th style="padding:10px 6px;text-align:center;width:36px">#</th>' +
+      '<th style="padding:10px 6px;text-align:right;">اسم الطالب</th>' +
+      '<th style="padding:10px 6px;text-align:center;">الرقم الوطني</th>' +
+      '<th style="padding:10px 6px;text-align:center;">الصف</th>' +
+      '<th style="padding:10px 6px;text-align:center;">الشعبة</th>' +
+      '<th style="padding:10px 6px;text-align:center;">إجراءات</th>' +
+    '</tr></thead><tbody>';
+
+    var nameCount = {};
+    var natCount = {};
+    filtered.forEach(function(s) {
+      var n = s.name.trim().toLowerCase();
+      nameCount[n] = (nameCount[n] || 0) + 1;
+      var nn = (s.nationalId || '').trim();
+      if (nn) natCount[nn] = (natCount[nn] || 0) + 1;
+    });
+
+    var prevLevel = null;
+    filtered.forEach(function(s, i) {
+      if (s.level !== prevLevel) {
+        if (prevLevel !== null) html += '</tbody><tbody>';
+        prevLevel = s.level;
+      }
+      var color = levelColors[s.level] || '#1e3a5f';
+      var nameDup = nameCount[s.name.trim().toLowerCase()] > 1;
+      var natVal = (s.nationalId || '').trim();
+      var natDup = natVal && natCount[natVal] > 1;
+      var absCount = absenceCountMonth(s);
+      var absBadge = '';
+      if (absCount > ABSENCE_WARN) absBadge = ' <span class="abs-badge danger" title="غياب متكرر هذا الشهر: ' + absCount + ' حصص">غياب ' + absCount + '</span>';
+      else if (absCount === ABSENCE_WARN) absBadge = ' <span class="abs-badge warn" title="' + absCount + ' غيابات هذا الشهر - يجب المتابعة">غياب ' + absCount + '</span>';
+      html += '<tr style="border-bottom:1px solid #eef2f7;">' +
+        '<td style="padding:8px 6px;text-align:center;color:#94a3b8;">' + (i + 1) + '</td>' +
+        '<td style="padding:8px 6px;text-align:right;"><div style="display:flex;align-items:center;justify-content:flex-start;gap:4px;"><input class="student-name-input' + (nameDup ? ' dup-name' : '') + '" value="' + escapeHtml(s.name) + '" title="' + (nameDup ? '⚠️ يوجد طلاب بنفس الاسم' : '') + '" oninput="updateLiveName(' + s.id + ',this.value)" onfocus="this.select()" style="flex:1;min-width:0;min-height:28px;">' + absBadge + '</div></td>' +
+        '<td style="padding:8px 6px;text-align:center;"><input class="national-id-input' + (natDup ? ' dup' : '') + '" value="' + escapeHtml(natVal) + '" title="' + (natDup ? '⚠️ رقم وطني مكرر' : '') + '" oninput="liveNationalId(' + s.id + ',this.value)" onchange="updateField(' + s.id + ',\'nationalId\',this.value)" onfocus="this.select()" maxlength="11" style="width:100%;min-width:110px;direction:ltr;text-align:center;"></td>' +
+        '<td style="padding:8px 6px;text-align:center;color:' + color + ';font-weight:700;">' + escapeHtml(s.level) + '</td>' +
+        '<td style="padding:8px 6px;text-align:center;">شعبة ' + escapeHtml(s.section) + '</td>' +
+        '<td style="padding:8px 6px;text-align:center;"><div class="action-btns"><button class="btn btn-sm" style="background:#e2e8f0;color:#475569" onclick="showMoveModal(' + s.id + ')" title="نقل">🚚</button><button class="btn btn-danger btn-sm" onclick="deleteStudent(' + s.id + ')">✕</button></div></td>' +
+      '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  var inpKeep = document.getElementById('allSearchInput');
+  var hadFocus = inpKeep && document.activeElement === inpKeep;
+  var selStart = hadFocus ? inpKeep.selectionStart : -1;
+  var selEnd = hadFocus ? inpKeep.selectionEnd : -1;
+  document.getElementById('allStudentsView').innerHTML = html;
+  if (hadFocus) {
+    var ni = document.getElementById('allSearchInput');
+    if (ni) { ni.focus(); ni.setSelectionRange(selStart, selEnd); }
+  }
+}
+
+function exportAllStudentsCSV() {
+  if (!students.length) { showToast('لا يوجد بيانات للتصدير', 'error'); return; }
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>جميع الطلاب</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--><style>.t { border-collapse:collapse; font-family:Segoe UI,Tahoma,sans-serif; font-size:12px; } .t td, .t th { border:1px solid #94a3b8; padding:5px 6px; text-align:center; } .t th { background:#1e3a5f; color:#fff; font-weight:700; }</style></head><body>';
+  html += '<table class="t"><tr><th>#</th><th>اسم الطالب</th><th>الرقم الوطني</th><th>الصف</th><th>الشعبة</th></tr>';
+  var levels = getLevels();
+  var all = students.slice().sort(function(a, b) {
+    var li = levels.indexOf(a.level), lj = levels.indexOf(b.level);
+    if (li !== lj) return li - lj;
+    if (a.section !== b.section) return (a.section < b.section ? -1 : 1);
+    return a.name.localeCompare(b.name, 'ar');
+  });
+  all.forEach(function(s, i) {
+    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.nationalId || '') + '</td><td>' + escapeHtml(s.level) + '</td><td>' + escapeHtml(s.section) + '</td></tr>';
+  });
+  html += '</table></body></html>';
+  var blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'جميع_الطلاب.xls';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 300);
+  showToast('تم تصدير جميع الطلاب إلى Excel');
+}
+
+function printAllStudents() {
+  if (!students.length) { showToast('لا يوجد بيانات للطباعة', 'error'); return; }
+  var html = '<div id="printArea">';
+  html += '<div class="print-header">';
+  html += '<h2>' + (config.schoolName || 'متابعة الطلاب') + '</h2>';
+  var meta = [];
+  if (config.directorate) meta.push('المديرية: ' + escapeHtml(config.directorate));
+  if (config.teacherName) meta.push('المعلم/ة: ' + escapeHtml(config.teacherName));
+  if (config.academicYear) meta.push('العام: ' + escapeHtml(config.academicYear));
+  if (config.semester) meta.push('الفصل: ' + escapeHtml(config.semester));
+  meta.push('التاريخ: ' + todayStr());
+  html += '<div class="print-meta">' + meta.join(' | ') + '</div>';
+  html += '<h3>جميع الطلاب</h3>';
+  html += '</div>';
+  html += '<table><thead><tr>';
+  html += '<th width="4%">#</th><th width="35%">اسم الطالب</th><th width="20%">الرقم الوطني</th><th width="20%">الصف</th><th width="21%">الشعبة</th>';
+  html += '</tr></thead><tbody>';
+  var levels = getLevels();
+  var all = students.slice().sort(function(a, b) {
+    var li = levels.indexOf(a.level), lj = levels.indexOf(b.level);
+    if (li !== lj) return li - lj;
+    if (a.section !== b.section) return (a.section < b.section ? -1 : 1);
+    return a.name.localeCompare(b.name, 'ar');
+  });
+  all.forEach(function(s, i) {
+    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.nationalId || '—') + '</td><td>' + escapeHtml(s.level) + '</td><td>' + escapeHtml(s.section) + '</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  window.print();
+  document.body.removeChild(div);
+}
+
 function showPaperPrintModal() {
-  if (currentView === 'settings' || currentView === 'schedule' || currentView === 'reports') {
+  if (currentView === 'settings' || currentView === 'schedule' || currentView === 'reports' || currentView === 'all') {
     showToast('اختر صفاً أولاً من الأعلى', 'error');
     return;
   }
   document.getElementById('paperPrintModal').classList.add('active');
   var lvl = document.getElementById('paperLevel');
   lvl.innerHTML = getLevels().map(function(l) { return '<option value="' + safeStr(l) + '">' + l + '</option>'; }).join('');
-  if (currentView !== 'settings') lvl.value = currentView;
+  if (currentView !== 'settings' && currentView !== 'all') lvl.value = currentView;
   populatePaperSections();
   document.getElementById('paperFrom').value = todayStr();
   document.getElementById('paperTo').value = todayStr();
@@ -2214,7 +2500,7 @@ function sheetHtml(level, section, list, date, period) {
 
 function printSection(section) {
   if (!students.length) { showToast('لا يوجد بيانات للطباعة', 'error'); return; }
-  if (currentView === 'settings' || currentView === 'schedule' || currentView === 'reports') return;
+  if (currentView === 'settings' || currentView === 'schedule' || currentView === 'reports' || currentView === 'all') return;
   var current = students.filter(function(s) { return s.level === currentView && s.section === section; });
   if (!current.length) { showToast('لا يوجد طلاب في هذه الشعبة', 'error'); return; }
   var sk = sessKey(currentSessDate, currentPeriod, currentView, section);
