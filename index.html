@@ -761,6 +761,25 @@ tr.absent:hover td { background: #fee2e2; }
         </div>
       </div>
 
+      <div class="settings-section">
+        <h3>☁️ المزامنة السحابية (GitHub Gist)</h3>
+        <p style="font-size:13px;color:#64748b;margin:2px 0 10px;">
+          تزامن تلقائي بين أجهزتك عبر حساب GitHub. كل تعديل يُرفع خلال ثوانٍ، ويُسحب عند فتح الصفحة. الـ Token يُخزّن محلياً على الجهاز فقط ولا يدخل في الملف أو النسخ الاحتياطية.
+        </p>
+        <div class="form-group">
+          <label>الرمز المميز GitHub Token <span style="font-weight:400;color:#94a3b8;">(صلاحية gist فقط)</span></label>
+          <input type="password" id="syncToken" onchange="saveSyncSettings()" placeholder="ghp_xxxxxxxxxxxxxxxxxx" autocomplete="off" style="direction:ltr;text-align:left;">
+        </div>
+        <div class="form-group">
+          <label>حالة المزامنة</label>
+          <div id="syncStatus" style="font-size:13px;color:#64748b;background:#f8fafc;padding:10px 12px;border-radius:8px;">غير مفعلة</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-success" onclick="cloudSyncNow()">🔄 مزامنة الآن</button>
+          <button class="btn btn-sm" style="background:#6366f1;color:white;font-size:12px;padding:8px 14px;" onclick="syncTest()">🔎 فحص الاتصال</button>
+        </div>
+      </div>
+
 
 
     </div>
@@ -939,6 +958,10 @@ tr.absent:hover td { background: #fee2e2; }
 const STORAGE_KEY = 'studentTrackerData';
 const CONFIG_KEY = 'studentTrackerConfig';
 const SESSIONS_KEY = 'studentSessions';
+const SYNC_KEY = 'studentTrackerSync';
+const GIST_FILE = 'students-control-data.json';
+const GIST_API = 'https://api.github.com/gists';
+let syncConf = { enabled: false, token: '', gistId: '', lastSyncAt: '' };
 
 const DEFAULT_LEVELS = { 'التاسع': ['أ','ب','ج','د','هـ'], 'العاشر': ['أ','ب','ج','د','هـ'], 'الحادي عشر الأكاديمي': ['أ','ب','ج','د'] };
 const DAYS = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس'];
@@ -1026,7 +1049,7 @@ function loadConfig() {
     if (raw) Object.assign(config, JSON.parse(raw));
   } catch(e) {}
 }
-function saveConfig() { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }
+function saveConfig() { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); scheduleAutoPush(); }
 
 function loadSessions() {
   try {
@@ -1035,11 +1058,12 @@ function loadSessions() {
     else sessions = {};
   } catch(e) { sessions = {}; }
 }
-function saveSessions() { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); }
+function saveSessions() { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); scheduleAutoPush(); }
 
 function loadData() {
   loadConfig();
   loadSessions();
+  loadSyncConf();
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) students = JSON.parse(data);
@@ -1094,6 +1118,7 @@ function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
   localStorage.setItem(STORAGE_KEY + '_view', currentView);
   localStorage.setItem(STORAGE_KEY + '_section', currentSection);
+  scheduleAutoPush();
 }
 
 function showToast(msg, type) {
@@ -1668,6 +1693,13 @@ function loadSettingsForm() {
   document.getElementById('cfgDirectorate').value = config.directorate || '';
   document.getElementById('cfgYear').value = config.academicYear || '';
   document.getElementById('cfgSemester').value = config.semester || 'الأول';
+  var tok = document.getElementById('syncToken');
+  if (tok) tok.value = syncConf.token || '';
+  if (syncConf.token) {
+    updateSyncStatus(syncConf.lastSyncAt ? ('آخر مزامنة: ' + new Date(syncConf.lastSyncAt).toLocaleString('ar-SY')) : 'مفعّلة - جارِ المزامنة');
+  } else {
+    updateSyncStatus('غير مفعلة - أدخل الـ GitHub Token للبدء');
+  }
   renderLevelsManager();
 }
 
@@ -1678,6 +1710,20 @@ function saveSettings() {
   config.academicYear = document.getElementById('cfgYear').value.trim();
   config.semester = document.getElementById('cfgSemester').value;
   saveConfig();
+  scheduleAutoPush();
+}
+
+function saveSyncSettings() {
+  syncConf.token = (document.getElementById('syncToken').value || '').trim();
+  if (syncConf.token) syncConf.enabled = true;
+  else { syncConf.enabled = false; syncConf.gistId = ''; }
+  saveSyncConf();
+  if (syncConf.token) {
+    updateSyncStatus('جارِ رفع البيانات لأول مرة...');
+    cloudSyncNow();
+  } else {
+    updateSyncStatus('غير مفعلة');
+  }
 }
 
 function renderLevelsManager() {
@@ -2018,6 +2064,7 @@ function debouncedPersist(which) {
   _autoSaveTimers[which] = setTimeout(function() {
     if (which === 'students') saveData();
     else if (which === 'sessions') saveSessions();
+    scheduleAutoPush();
   }, 500);
 }
 
@@ -2636,8 +2683,199 @@ function importBackup(event) {
   reader.readAsText(file, 'UTF-8');
 }
 
+function loadSyncConf() {
+  try {
+    const raw = localStorage.getItem(SYNC_KEY);
+    if (raw) Object.assign(syncConf, JSON.parse(raw));
+  } catch(e) {}
+}
+function saveSyncConf() {
+  localStorage.setItem(SYNC_KEY, JSON.stringify(syncConf));
+}
+function gistHeaders() {
+  return { Authorization: 'token ' + syncConf.token, Accept: 'application/vnd.github+json' };
+}
+function buildBundle() {
+  return { app: 'متابعة الطلبة', version: 1, updatedAt: new Date().toISOString(), students: students, config: config, sessions: sessions };
+}
+function saveAllLocal() {
+  saveData();
+  saveConfig();
+  saveSessions();
+}
+function mergeAll(remote) {
+  var changed = false;
+  if (remote.students && remote.students.length !== undefined) {
+    var localMap = {};
+    students.forEach(function(s) { localMap[s.id] = s; });
+    var final = [];
+    remote.students.forEach(function(rs) {
+      if (localMap[rs.id]) {
+        if (JSON.stringify(localMap[rs.id]) !== JSON.stringify(rs)) changed = true;
+        final.push(rs);
+        delete localMap[rs.id];
+      } else {
+        changed = true;
+        final.push(rs);
+      }
+    });
+    Object.keys(localMap).forEach(function(id) { final.push(localMap[id]); });
+    students = final;
+  }
+  if (remote.sessions) {
+    Object.keys(remote.sessions).forEach(function(k) {
+      var rrecs = remote.sessions[k].records || {};
+      if (!sessions[k]) { changed = true; sessions[k] = { records: {} }; }
+      var lrecs = sessions[k].records = sessions[k].records || {};
+      Object.keys(rrecs).forEach(function(sid) {
+        if (!lrecs[sid] || JSON.stringify(lrecs[sid]) !== JSON.stringify(rrecs[sid])) {
+          changed = true;
+          lrecs[sid] = rrecs[sid];
+        }
+      });
+    });
+  }
+  if (remote.config) {
+    if (remote.config.levels) {
+      Object.keys(remote.config.levels).forEach(function(l) {
+        if (!config.levels[l]) {
+          changed = true;
+          config.levels[l] = remote.config.levels[l].slice();
+        } else {
+          remote.config.levels[l].forEach(function(sec) {
+            if (!config.levels[l].includes(sec)) { changed = true; config.levels[l].push(sec); }
+          });
+        }
+      });
+    }
+    ['teacherName','schoolName','directorate','academicYear','semester'].forEach(function(f) {
+      if (remote.config[f] && remote.config[f] !== config[f]) { changed = true; config[f] = remote.config[f]; }
+    });
+  }
+  if (changed) { syncConf.lastSyncAt = new Date().toISOString(); saveSyncConf(); }
+  return changed;
+}
+function cloudPush() {
+  return new Promise(function(resolve, reject) {
+    if (!syncConf.token) { reject(new Error('لا يوجد Token')); return; }
+    var bundle = buildBundle();
+    var payload = { description: 'بيانات متابعة الطلاب - مزامنة تلقائية', files: {} };
+    payload.files[GIST_FILE] = { content: JSON.stringify(bundle) };
+    var url = GIST_API, method = 'POST';
+    if (syncConf.gistId) { url = GIST_API + '/' + syncConf.gistId; method = 'PATCH'; }
+    else payload.public = false;
+    fetch(url, { method: method, headers: gistHeaders(), body: JSON.stringify(payload) })
+      .then(function(r) {
+        return r.json().then(function(j) { return { status: r.status, json: j }; });
+      })
+      .then(function(res) {
+        if (res.status >= 400) {
+          var msg = (res.json && res.json.message) || ('HTTP ' + res.status);
+          if (res.status === 404) { syncConf.gistId = ''; saveSyncConf(); }
+          reject(new Error(msg));
+          return;
+        }
+        syncConf.gistId = syncConf.gistId || res.json.id;
+        syncConf.lastSyncAt = new Date().toISOString();
+        saveSyncConf();
+        resolve(true);
+      })
+      .catch(function(err) { reject(err); });
+  });
+}
+function cloudPull(withRender) {
+  return new Promise(function(resolve) {
+    if (!syncConf.token || !syncConf.gistId) { resolve(false); return; }
+    function parseAndMerge(text) {
+      var remote;
+      try { remote = JSON.parse(text); } catch(e) { resolve(false); return; }
+      if (!remote || !remote.sessions || !remote.students) { resolve(false); return; }
+      var changed = mergeAll(remote);
+      if (changed) {
+        saveAllLocal();
+        if (withRender) renderAll();
+      }
+      resolve(changed);
+    }
+    fetch(GIST_API + '/' + syncConf.gistId, { headers: gistHeaders() })
+      .then(function(r) {
+        if (r.status === 404) { syncConf.gistId = ''; saveSyncConf(); resolve(false); return null; }
+        if (r.status >= 400) { resolve(false); return null; }
+        return r.json();
+      })
+      .then(function(g) {
+        if (!g) return;
+        var file = g.files && g.files[GIST_FILE];
+        if (!file) { resolve(false); return; }
+        if (file.content !== undefined && file.content !== '') { parseAndMerge(file.content); }
+        else if (file.raw_url) {
+          fetch(file.raw_url, { headers: gistHeaders() })
+            .then(function(r) { return r.text(); })
+            .then(parseAndMerge)
+            .catch(function() { resolve(false); });
+        } else { resolve(false); }
+      })
+      .catch(function() { resolve(false); });
+  });
+}
+function syncTest() {
+  if (!syncConf.token) { showToast('أدخل الـ GitHub Token أولاً', 'error'); return; }
+  updateSyncStatus('جارِ فحص الاتصال...');
+  fetch(GIST_API, { headers: gistHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(j) {
+      if (j && j.login) {
+        syncConf.enabled = true;
+        saveSyncConf();
+        updateSyncStatus('متصل بحساب: ' + j.login + (syncConf.gistId ? ' (Gist: ' + syncConf.gistId + ')' : ''));
+        showToast('✅ الاتصال بخدمة GitHub ناجح');
+      } else {
+        updateSyncStatus('فشل الاتصال: ' + (j.message || 'خطأ'));
+        showToast('⚠️ تحقق من الـ Token', 'error');
+      }
+    })
+    .catch(function() {
+      updateSyncStatus('فشل الاتصال: لا يوجد إنترنت أو الطلب محجوب');
+      showToast('⚠️ لا يوجد اتصال', 'error');
+    });
+}
+function cloudSyncNow() {
+  if (!syncConf.token) { showToast('أدخل الـ GitHub Token أولاً', 'error'); return; }
+  updateSyncStatus('جارِ المزامنة...');
+  cloudPull(true)
+    .then(function() { return cloudPush(); })
+    .then(function() {
+      updateSyncStatus('آخر مزامنة ناجحة: ' + new Date().toLocaleString('ar-SY'));
+      showToast('✅ تمت المزامنة');
+      renderAll();
+    })
+    .catch(function(err) {
+      updateSyncStatus('فشلت المزامنة: ' + (err && err.message ? err.message : 'خطأ'));
+      showToast('⚠️ فشلت المزامنة', 'error');
+    });
+}
+function updateSyncStatus(msg) {
+  var el = document.getElementById('syncStatus');
+  if (el) el.textContent = msg;
+}
+var _autoPushTimer = null;
+function scheduleAutoPush() {
+  if (!syncConf.token) return;
+  if (_autoPushTimer) clearTimeout(_autoPushTimer);
+  _autoPushTimer = setTimeout(function() {
+    cloudPush().catch(function() {});
+  }, 3000);
+}
+function autoPullOnLoad() {
+  if (!syncConf.token || !syncConf.gistId) return;
+  cloudPull(false).then(function(changed) {
+    if (changed) { saveAllLocal(); renderAll(); }
+  });
+}
+
 loadData();
 renderAll();
+autoPullOnLoad();
 </script>
 </body>
 </html>
