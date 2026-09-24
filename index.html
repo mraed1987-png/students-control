@@ -959,9 +959,11 @@ const STORAGE_KEY = 'studentTrackerData';
 const CONFIG_KEY = 'studentTrackerConfig';
 const SESSIONS_KEY = 'studentSessions';
 const SYNC_KEY = 'studentTrackerSync';
+const DEL_KEY = 'studentTrackerDeleted';
 const GIST_FILE = 'students-control-data.json';
 const GIST_API = 'https://api.github.com/gists';
 let syncConf = { enabled: false, token: '', gistId: '', lastSyncAt: '' };
+let deletedIds = [];
 
 const DEFAULT_LEVELS = { 'التاسع': ['أ','ب','ج','د','هـ'], 'العاشر': ['أ','ب','ج','د','هـ'], 'الحادي عشر الأكاديمي': ['أ','ب','ج','د'] };
 const DAYS = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس'];
@@ -1064,6 +1066,7 @@ function loadData() {
   loadConfig();
   loadSessions();
   loadSyncConf();
+  loadDeleted();
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) students = JSON.parse(data);
@@ -1988,6 +1991,7 @@ function importStudents() {
 function deleteStudent(id) {
   if (!confirm('هل تريد حذف هذا الطالب؟')) return;
   students = students.filter(function(s) { return s.id !== id; });
+  tombstoneId(id);
   saveData();
   Object.keys(sessions).forEach(function(k) {
     if (sessions[k].records) delete sessions[k].records[id];
@@ -1999,6 +2003,7 @@ function deleteStudent(id) {
 
 function clearAll() {
   if (!confirm('هل تريد تفريغ جميع البيانات؟')) return;
+  students.forEach(function(s) { tombstoneId(s.id); });
   students = [];
   sessions = {};
   saveData();
@@ -2692,11 +2697,25 @@ function loadSyncConf() {
 function saveSyncConf() {
   localStorage.setItem(SYNC_KEY, JSON.stringify(syncConf));
 }
+function loadDeleted() {
+  try {
+    const raw = localStorage.getItem(DEL_KEY);
+    if (raw) deletedIds = JSON.parse(raw);
+    else deletedIds = [];
+  } catch(e) { deletedIds = []; }
+}
+function saveDeleted() {
+  localStorage.setItem(DEL_KEY, JSON.stringify(deletedIds));
+}
+function tombstoneId(id) {
+  if (deletedIds.indexOf(id) === -1) deletedIds.push(id);
+  saveDeleted();
+}
 function gistHeaders() {
   return { Authorization: 'token ' + syncConf.token, Accept: 'application/vnd.github+json' };
 }
 function buildBundle() {
-  return { app: 'متابعة الطلبة', version: 1, updatedAt: new Date().toISOString(), students: students, config: config, sessions: sessions };
+  return { app: 'متابعة الطلبة', version: 1, updatedAt: new Date().toISOString(), students: students, config: config, sessions: sessions, deletedIds: deletedIds };
 }
 function saveAllLocal() {
   saveData();
@@ -2705,11 +2724,18 @@ function saveAllLocal() {
 }
 function mergeAll(remote) {
   var changed = false;
+  var remoteDel = Array.isArray(remote.deletedIds) ? remote.deletedIds : [];
+  remoteDel.forEach(function(id) {
+    if (deletedIds.indexOf(id) === -1) { changed = true; deletedIds.push(id); }
+  });
+  var dead = {};
+  deletedIds.forEach(function(id) { dead[id] = true; });
   if (remote.students && remote.students.length !== undefined) {
     var localMap = {};
-    students.forEach(function(s) { localMap[s.id] = s; });
+    students.forEach(function(s) { if (!dead[s.id]) localMap[s.id] = s; });
     var final = [];
     remote.students.forEach(function(rs) {
+      if (dead[rs.id]) return;
       if (localMap[rs.id]) {
         if (JSON.stringify(localMap[rs.id]) !== JSON.stringify(rs)) changed = true;
         final.push(rs);
@@ -2728,10 +2754,17 @@ function mergeAll(remote) {
       if (!sessions[k]) { changed = true; sessions[k] = { records: {} }; }
       var lrecs = sessions[k].records = sessions[k].records || {};
       Object.keys(rrecs).forEach(function(sid) {
+        if (dead[sid]) { changed = true; return; }
         if (!lrecs[sid] || JSON.stringify(lrecs[sid]) !== JSON.stringify(rrecs[sid])) {
           changed = true;
           lrecs[sid] = rrecs[sid];
         }
+      });
+    });
+    Object.keys(sessions).forEach(function(k) {
+      if (!sessions[k].records) return;
+      Object.keys(sessions[k].records).forEach(function(sid) {
+        if (dead[sid]) { delete sessions[k].records[sid]; changed = true; }
       });
     });
   }
@@ -2752,7 +2785,7 @@ function mergeAll(remote) {
       if (remote.config[f] && remote.config[f] !== config[f]) { changed = true; config[f] = remote.config[f]; }
     });
   }
-  if (changed) { syncConf.lastSyncAt = new Date().toISOString(); saveSyncConf(); }
+  if (changed) { syncConf.lastSyncAt = new Date().toISOString(); saveSyncConf(); saveDeleted(); }
   return changed;
 }
 function findBestGist() {
