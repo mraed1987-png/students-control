@@ -709,6 +709,8 @@ tr.absent:hover td { background: #fee2e2; }
 
     <div class="all-students-view" id="allStudentsView" style="display:none"></div>
 
+    <div class="log-view" id="logView" style="display:none"></div>
+
     <div class="settings-panel" id="settingsPanel" style="display:none">
       <div class="settings-section">
         <h3>📋 معلومات عامة</h3>
@@ -1104,7 +1106,7 @@ function loadData() {
   const savedView = localStorage.getItem(STORAGE_KEY + '_view');
   const savedSection = localStorage.getItem(STORAGE_KEY + '_section');
   const levels = getLevels();
-  if (savedView === 'settings' || savedView === 'schedule' || savedView === 'reports' || savedView === 'all') currentView = savedView;
+  if (savedView === 'settings' || savedView === 'schedule' || savedView === 'reports' || savedView === 'all' || savedView === 'log') currentView = savedView;
   else if (savedView && levels.includes(savedView)) currentView = savedView;
   else currentView = levels.length ? levels[0] : 'settings';
 
@@ -1168,6 +1170,12 @@ function switchToAll() {
   renderAll();
 }
 
+function switchToLog() {
+  currentView = 'log';
+  saveData();
+  renderAll();
+}
+
 function goToClass(slot, period) {
   if (!slot || slot === 'free') return;
   var p = slotToParts(slot);
@@ -1189,6 +1197,8 @@ function renderAll() {
   var toolbar = document.getElementById('toolbar');
   var secTabs = document.getElementById('sectionTabs');
   var schedDiv = document.getElementById('scheduleView');
+  var logDiv = document.getElementById('logView');
+  if (logDiv && currentView !== 'log') logDiv.style.display = 'none';
   if (currentView === 'settings') {
     var rptDiv = document.getElementById('reportsView');
     if (rptDiv) rptDiv.style.display = 'none';
@@ -1233,6 +1243,18 @@ function renderAll() {
     var allDiv2 = document.getElementById('allStudentsView');
     if (allDiv2) allDiv2.style.display = '';
     renderAllStudents();
+  } else if (currentView === 'log') {
+    if (schedDiv) schedDiv.style.display = 'none';
+    var rptDivLog = document.getElementById('reportsView');
+    if (rptDivLog) rptDivLog.style.display = 'none';
+    panel.style.display = 'none';
+    wrap.style.display = 'none';
+    toolbar.style.display = 'none';
+    secTabs.style.display = 'none';
+    var allDivLog = document.getElementById('allStudentsView');
+    if (allDivLog) allDivLog.style.display = 'none';
+    logDiv.style.display = '';
+    renderLog();
   } else {
     if (schedDiv) schedDiv.style.display = 'none';
     var rptDiv = document.getElementById('reportsView');
@@ -1260,9 +1282,10 @@ function renderTabs() {
   '<button class="level-tab' + (currentView === 'all' ? ' active' : '') + '" onclick="switchToAll()">👥 جميع الطلاب <span class="badge">' + students.length + '</span></button>' +
   '<button class="level-tab' + (currentView === 'schedule' ? ' active' : '') + '" onclick="switchToSchedule()">📋 جدولي</button>' +
   '<button class="level-tab' + (currentView === 'reports' ? ' active' : '') + '" onclick="switchToReports()">📊 تقارير</button>' +
+  '<button class="level-tab' + (currentView === 'log' ? ' active' : '') + '" onclick="switchToLog()">📒 سجل المتابعة</button>' +
   '<button class="level-tab settings-tab' + (currentView === 'settings' ? ' active' : '') + '" onclick="switchToSettings()">⚙️</button>';
 
-  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all') {
+  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all' && currentView !== 'log') {
     var secs = getSections(currentView);
     document.getElementById('sectionTabs').innerHTML = secs.map(function(sec) {
       var count = students.filter(function(s) { return s.level === currentView && s.section === sec; }).length;
@@ -2336,6 +2359,173 @@ function renderAllStudents() {
     var ni = document.getElementById('allSearchInput');
     if (ni) { ni.focus(); ni.setSelectionRange(selStart, selEnd); }
   }
+}
+
+function logAggregate(s, from, to) {
+  var agg = { sessions: 0, present: 0, absent: 0, late: 0, behN: 0, behSum: 0, disN: 0, disSum: 0, noBook: 0, noHw: 0, noteCount: 0, latestNote: '' };
+  var latestNoteDate = '';
+  Object.keys(sessions).forEach(function(k) {
+    var date = k.split('_')[0] || '';
+    if (from && date < from) return;
+    if (to && date > to) return;
+    var rec = sessions[k].records && sessions[k].records[s.id];
+    if (!rec) return;
+    agg.sessions++;
+    var att = rec.attendance || 'present';
+    if (att === 'absent') agg.absent++; else if (att === 'late') agg.late++; else agg.present++;
+    if (rec.behavior !== undefined && rec.behavior !== '' && rec.behavior !== null) { var b = Number(rec.behavior); if (!isNaN(b)) { agg.behSum += b; agg.behN++; } }
+    if (rec.discipline !== undefined && rec.discipline !== '' && rec.discipline !== null) { var d = Number(rec.discipline); if (!isNaN(d)) { agg.disSum += d; agg.disN++; } }
+    if (rec.book === 'no') agg.noBook++;
+    if (rec.homework === 'no') agg.noHw++;
+    if (rec.notes && rec.notes.trim()) { agg.noteCount++; if (!latestNoteDate || date > latestNoteDate) { latestNoteDate = date; agg.latestNote = rec.notes; } }
+  });
+  return agg;
+}
+
+function renderLog() {
+  var search = (document.getElementById('logSearch') ? document.getElementById('logSearch').value : '').trim().toLowerCase();
+  var levelF = (document.getElementById('logLevel') ? document.getElementById('logLevel').value : '');
+  var sectionF = (document.getElementById('logSection') ? document.getElementById('logSection').value : '');
+  var from = (document.getElementById('logFrom') ? document.getElementById('logFrom').value : '');
+  var to = (document.getElementById('logTo') ? document.getElementById('logTo').value : '');
+  var levels = getLevels();
+  var filtered = students.filter(function(s) {
+    if (levelF && s.level !== levelF) return false;
+    if (sectionF && s.section !== sectionF) return false;
+    if (search && s.name.toLowerCase().indexOf(search) === -1 && (s.nationalId || '').toString().toLowerCase().indexOf(search) === -1) return false;
+    return true;
+  });
+  filtered.sort(function(a, b) {
+    var li = levels.indexOf(a.level), lj = levels.indexOf(b.level);
+    if (li !== lj) return li - lj;
+    if (a.section !== b.section) return (a.section < b.section ? -1 : 1);
+    return a.name.localeCompare(b.name, 'ar');
+  });
+
+  var totalSessions = 0, totalAbsent = 0, totalLate = 0;
+  var rows = filtered.map(function(s) {
+    var agg = logAggregate(s, from, to);
+    totalSessions += agg.sessions; totalAbsent += agg.absent; totalLate += agg.late;
+    return { s: s, agg: agg };
+  });
+
+  var html = '<h2 style="font-size:18px;color:#1e3a5f;margin-bottom:14px;">📒 سجل المتابعة الطلابية <span style="font-size:13px;color:#94a3b8;font-weight:400;">(' + rows.length + ' طالب)</span></h2>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;background:white;border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">';
+  html += '<input type="text" id="logSearch" value="' + escapeHtml(search) + '" placeholder="🔍 بحث بالاسم أو الرقم الوطني..." oninput="renderLog()" style="flex:1;min-width:170px;padding:7px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">';
+  html += '<select id="logLevel" onchange="renderLog()" style="padding:7px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">';
+  html += '<option value="">كل الصفوف</option>' + levels.map(function(l) { return '<option value="' + safeStr(l) + '"' + (l === levelF ? ' selected' : '') + '>' + l + '</option>'; }).join('');
+  html += '</select>';
+  var secs = levelF ? getSections(levelF) : [];
+  html += '<select id="logSection" onchange="renderLog()" style="padding:7px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">';
+  html += '<option value="">كل الشعب</option>' + secs.map(function(sec) { return '<option value="' + safeStr(sec) + '"' + (sec === sectionF ? ' selected' : '') + '>شعبة ' + sec + '</option>'; }).join('');
+  html += '</select>';
+  html += '<span style="font-size:13px;color:#64748b;">من</span><input type="date" id="logFrom" value="' + from + '" onchange="renderLog()" style="padding:6px 8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">';
+  html += '<span style="font-size:13px;color:#64748b;">إلى</span><input type="date" id="logTo" value="' + to + '" onchange="renderLog()" style="padding:6px 8px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;">';
+  html += '<button class="btn btn-secondary" onclick="printLog()">🖨️ طباعة السجل</button>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">' +
+    '<span style="background:#eef2f7;padding:3px 12px;border-radius:8px;font-size:12px;font-weight:600;color:#334155;">📚 جلسات مسجلة: ' + totalSessions + '</span>' +
+    '<span style="background:#fee2e2;padding:3px 12px;border-radius:8px;font-size:12px;font-weight:600;color:#b91c1c;">غياب: ' + totalAbsent + '</span>' +
+    '<span style="background:#fef3c7;padding:3px 12px;border-radius:8px;font-size:12px;font-weight:600;color:#b45309;">تأخر: ' + totalLate + '</span>' +
+  '</div>';
+  if (!rows.length) {
+    html += '<div style="background:white;border-radius:12px;padding:30px;text-align:center;color:#94a3b8;">لا يوجد طلاب مطابقون للتصفية.</div>';
+  } else {
+    html += '<div style="overflow-x:auto;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += '<thead><tr style="background:#1e3a5f;color:white;">' +
+      '<th style="padding:9px 6px;width:34px">#</th>' +
+      '<th style="padding:9px 6px;text-align:right;">اسم الطالب</th>' +
+      '<th style="padding:9px 6px;">الصف / الشعبة</th>' +
+      '<th style="padding:9px 6px;">الجلسات</th>' +
+      '<th style="padding:9px 6px;">حاضر</th>' +
+      '<th style="padding:9px 6px;">غائب</th>' +
+      '<th style="padding:9px 6px;">متأخر</th>' +
+      '<th style="padding:9px 6px;">معدل السلوك</th>' +
+      '<th style="padding:9px 6px;">معدل الانضباط</th>' +
+      '<th style="padding:9px 6px;">بلا كتاب</th>' +
+      '<th style="padding:9px 6px;">بلا واجب</th>' +
+      '<th style="padding:9px 6px;">ملاحظات</th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function(x, i) {
+      var a = x.agg;
+      var beh = a.behN ? (a.behSum / a.behN).toFixed(1) : '—';
+      var dis = a.disN ? (a.disSum / a.disN).toFixed(1) : '—';
+      html += '<tr' + (a.absent > ABSENCE_WARN ? ' style="border-bottom:1px solid #eef2f7;background:#fef2f2;"' : ' style="border-bottom:1px solid #eef2f7;"') + '>' +
+        '<td style="padding:7px 6px;text-align:center;color:#94a3b8;">' + (i + 1) + '</td>' +
+        '<td style="padding:7px 6px;text-align:right;">' + escapeHtml(x.s.name) + (x.s.nationalId ? ' <span style="color:#94a3b8;font-size:11px;direction:ltr;unicode-bidi:embed;">' + escapeHtml(String(x.s.nationalId)) + '</span>' : '') + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;">' + escapeHtml(x.s.level) + ' - ' + escapeHtml(x.s.section) + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;">' + a.sessions + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;color:#10b981;font-weight:600;">' + a.present + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;color:' + (a.absent > ABSENCE_WARN ? '#b91c1c;font-weight:700' : (a.absent ? '#ef4444' : '#94a3b8')) + ';">' + a.absent + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;color:' + (a.late ? '#b45309' : '#94a3b8') + ';">' + a.late + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;">' + beh + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;">' + dis + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;">' + a.noBook + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;">' + a.noHw + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;">' + (a.latestNote ? '<span title="' + escapeHtml(a.latestNote) + '" style="cursor:help;border-bottom:1px dashed #94a3b8;">' + a.noteCount + '</span>' : (a.noteCount || '—')) + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  var inpKeep = document.getElementById('logSearch');
+  var hadFocus = inpKeep && document.activeElement === inpKeep;
+  var selStart = hadFocus ? inpKeep.selectionStart : -1;
+  var selEnd = hadFocus ? inpKeep.selectionEnd : -1;
+  var el = document.getElementById('logView');
+  el.innerHTML = html;
+  if (hadFocus) {
+    var ni = document.getElementById('logSearch');
+    if (ni) { ni.focus(); ni.setSelectionRange(selStart, selEnd); }
+  }
+}
+
+function printLog() {
+  var levelF = document.getElementById('logLevel') ? document.getElementById('logLevel').value : '';
+  var sectionF = document.getElementById('logSection') ? document.getElementById('logSection').value : '';
+  var from = document.getElementById('logFrom') ? document.getElementById('logFrom').value : '';
+  var to = document.getElementById('logTo') ? document.getElementById('logTo').value : '';
+  var search = document.getElementById('logSearch') ? document.getElementById('logSearch').value.trim().toLowerCase() : '';
+  var levels = getLevels();
+  var filtered = students.filter(function(s) {
+    if (levelF && s.level !== levelF) return false;
+    if (sectionF && s.section !== sectionF) return false;
+    if (search && s.name.toLowerCase().indexOf(search) === -1 && (s.nationalId || '').toString().toLowerCase().indexOf(search) === -1) return false;
+    return true;
+  });
+  filtered.sort(function(a, b) {
+    var li = levels.indexOf(a.level), lj = levels.indexOf(b.level);
+    if (li !== lj) return li - lj;
+    if (a.section !== b.section) return (a.section < b.section ? -1 : 1);
+    return a.name.localeCompare(b.name, 'ar');
+  });
+  var html = '<div id="printArea">';
+  html += '<div class="print-header">';
+  html += '<h2>' + (config.schoolName || 'متابعة الطلاب') + '</h2>';
+  var meta = [];
+  if (config.directorate) meta.push('المديرية: ' + escapeHtml(config.directorate));
+  if (config.teacherName) meta.push('المعلم/ة: ' + escapeHtml(config.teacherName));
+  if (config.academicYear) meta.push('العام: ' + escapeHtml(config.academicYear));
+  if (config.semester) meta.push('الفصل: ' + escapeHtml(config.semester));
+  meta.push('التاريخ: ' + todayStr());
+  if (from || to) meta.push('الفترة: ' + (from || 'البداية') + ' → ' + (to || 'النهاية'));
+  if (levelF) meta.push('الصف: ' + levelF);
+  if (sectionF) meta.push('الشعبة: ' + sectionF);
+  html += '<div class="print-meta">' + meta.join(' | ') + '</div>';
+  html += '<h3>سجل المتابعة الطلابية</h3>';
+  html += '</div>';
+  html += '<table><thead><tr>';
+  html += '<th width="4%">#</th><th width="22%">الطالب</th><th width="12%">الصف/الشعبة</th><th width="8%">الجلسات</th><th width="7%">حاضر</th><th width="7%">غائب</th><th width="8%">متأخر</th><th width="8%">السلوك</th><th width="9%">الانضباط</th><th width="7%">بلا كتاب</th><th width="8%">بلا واجب</th></tr></thead><tbody>';
+  filtered.forEach(function(s, i) {
+    var a = logAggregate(s, from, to);
+    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.level) + ' - ' + escapeHtml(s.section) + '</td><td>' + a.sessions + '</td><td>' + a.present + '</td><td>' + a.absent + '</td><td>' + a.late + '</td><td>' + (a.behN ? (a.behSum / a.behN).toFixed(1) : '—') + '</td><td>' + (a.disN ? (a.disSum / a.disN).toFixed(1) : '—') + '</td><td>' + a.noBook + '</td><td>' + a.noHw + '</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  window.print();
+  document.body.removeChild(div);
 }
 
 function exportAllStudentsCSV() {
