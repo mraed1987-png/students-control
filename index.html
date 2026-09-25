@@ -720,6 +720,8 @@ tr.absent:hover td { background: #fee2e2; }
 
     <div class="log-view" id="logView" style="display:none"></div>
 
+    <div class="marks-view" id="marksView" style="display:none"></div>
+
     <div class="settings-panel" id="settingsPanel" style="display:none">
       <div class="settings-section">
         <h3>📋 معلومات عامة</h3>
@@ -993,7 +995,8 @@ let students = [];
 let config = { teacherName: '', schoolName: '', directorate: '', academicYear: '', semester: '', levels: {}, schedule: {} };
 let sessions = {};
 let marks = {};
-let marksMode = false;
+let markGrade = '';
+let markSection = '';
 let currentView = null;
 let currentSection = 'أ';
 let currentSessDate = '';
@@ -1122,10 +1125,16 @@ function loadData() {
   const savedView = localStorage.getItem(STORAGE_KEY + '_view');
   const savedSection = localStorage.getItem(STORAGE_KEY + '_section');
   const levels = getLevels();
-  if (savedView === 'settings' || savedView === 'schedule' || savedView === 'reports' || savedView === 'all' || savedView === 'log') currentView = savedView;
+  if (savedView === 'settings' || savedView === 'schedule' || savedView === 'reports' || savedView === 'all' || savedView === 'log' || savedView === 'marks') currentView = savedView;
   else if (savedView && levels.includes(savedView)) currentView = savedView;
   else currentView = levels.length ? levels[0] : 'settings';
-  marksMode = levels.includes(currentView) && localStorage.getItem(STORAGE_KEY + '_marksMode') === '1';
+  markGrade = localStorage.getItem(STORAGE_KEY + '_mGrade') || '';
+  markSection = localStorage.getItem(STORAGE_KEY + '_mSec') || '';
+  if (!markGrade || !levels.includes(markGrade)) markGrade = levels.length ? levels[0] : '';
+  if (markGrade) {
+    const mSecs = getSections(markGrade);
+    if (!mSecs.includes(markSection)) markSection = mSecs.length ? mSecs[0] : '';
+  }
 
   currentSection = savedSection || (getSections(currentView).length ? getSections(currentView)[0] : 'أ');
   if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all') {
@@ -1140,7 +1149,8 @@ function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
   localStorage.setItem(STORAGE_KEY + '_view', currentView);
   localStorage.setItem(STORAGE_KEY + '_section', currentSection);
-  localStorage.setItem(STORAGE_KEY + '_marksMode', marksMode ? '1' : '0');
+  localStorage.setItem(STORAGE_KEY + '_mGrade', markGrade);
+  localStorage.setItem(STORAGE_KEY + '_mSec', markSection);
   saveMarks();
   scheduleAutoPush();
 }
@@ -1168,26 +1178,30 @@ function switchLevel(level) {
 function switchToMarks() {
   var levels = getLevels();
   if (!levels.length) { showToast('لا توجد صفوف بعد', 'error'); return; }
-  if (marksMode && levels.includes(currentView)) {
-    marksMode = false;
-  } else {
-    if (!levels.includes(currentView)) currentView = levels[0];
-    marksMode = true;
-  }
-  const secs = getSections(currentView);
-  if (!secs.includes(currentSection)) currentSection = secs.length ? secs[0] : 'أ';
+  if (!levels.includes(markGrade)) markGrade = levels[0];
+  const secs = getSections(markGrade);
+  if (!secs.includes(markSection)) markSection = secs.length ? secs[0] : '';
+  currentView = 'marks';
   saveData();
   renderAll();
-  showToast(marksMode ? '📑 سجل العلامات' : '📋 جدول الحضور');
+}
+function setMarkGrade(g) {
+  markGrade = g;
+  const secs = getSections(markGrade);
+  if (!secs.includes(markSection)) markSection = secs.length ? secs[0] : '';
+  saveData();
+  renderMarks();
+}
+function setMarkSection(sec) {
+  markSection = sec;
+  saveData();
+  renderMarks();
 }
 
 function switchSection(section) {
   currentSection = section;
   saveData();
   renderAll();
-}
-function switchSectionSelected(section) {
-  switchSection(section);
 }
 
 function switchToSettings() {
@@ -1238,6 +1252,8 @@ function renderAll() {
   var schedDiv = document.getElementById('scheduleView');
   var logDiv = document.getElementById('logView');
   if (logDiv && currentView !== 'log') logDiv.style.display = 'none';
+  var mkDiv = document.getElementById('marksView');
+  if (mkDiv && currentView !== 'marks') mkDiv.style.display = 'none';
   if (currentView === 'settings') {
     var rptDiv = document.getElementById('reportsView');
     if (rptDiv) rptDiv.style.display = 'none';
@@ -1294,6 +1310,22 @@ function renderAll() {
     if (allDivLog) allDivLog.style.display = 'none';
     logDiv.style.display = '';
     renderLog();
+  } else if (currentView === 'marks') {
+    if (schedDiv) schedDiv.style.display = 'none';
+    var rptDivMk = document.getElementById('reportsView');
+    if (rptDivMk) rptDivMk.style.display = 'none';
+    panel.style.display = 'none';
+    wrap.style.display = 'none';
+    toolbar.style.display = 'none';
+    secTabs.style.display = 'none';
+    var allDivMk = document.getElementById('allStudentsView');
+    if (allDivMk) allDivMk.style.display = 'none';
+    logDiv.style.display = 'none';
+    var mkDiv = document.getElementById('marksView');
+    if (mkDiv) {
+      mkDiv.style.display = '';
+      renderMarks();
+    }
   } else {
     if (schedDiv) schedDiv.style.display = 'none';
     var rptDiv = document.getElementById('reportsView');
@@ -1307,13 +1339,7 @@ function renderAll() {
     document.getElementById('sessDate').value = currentSessDate;
     document.getElementById('sessPeriod').value = currentPeriod;
     populateSessLoad();
-    if (marksMode) {
-      toolbar.style.display = 'none';
-      renderMarks();
-    } else {
-      toolbar.style.display = '';
-      renderTable();
-    }
+    renderTable();
   }
 }
 
@@ -1328,23 +1354,15 @@ function renderTabs() {
   '<button class="level-tab' + (currentView === 'schedule' ? ' active' : '') + '" onclick="switchToSchedule()">📋 جدولي</button>' +
   '<button class="level-tab' + (currentView === 'reports' ? ' active' : '') + '" onclick="switchToReports()">📊 تقارير</button>' +
   '<button class="level-tab' + (currentView === 'log' ? ' active' : '') + '" onclick="switchToLog()">📒 سجل المتابعة</button>' +
-  '<button class="level-tab' + (marksMode && currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all' && currentView !== 'log' ? ' active' : '') + '" onclick="switchToMarks()">📑 علامات</button>' +
+  '<button class="level-tab' + (currentView === 'marks' ? ' active' : '') + '" onclick="switchToMarks()">📑 علامات</button>' +
   '<button class="level-tab settings-tab' + (currentView === 'settings' ? ' active' : '') + '" onclick="switchToSettings()">⚙️</button>';
 
-  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all' && currentView !== 'log') {
+  if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all' && currentView !== 'log' && currentView !== 'marks') {
     var secs = getSections(currentView);
-    if (marksMode) {
-      document.getElementById('sectionTabs').innerHTML = '<select class="section-select" id="sectionSelect" onchange="switchSectionSelected(this.value)">' +
-        secs.map(function(sec) {
-          var count = students.filter(function(s) { return s.level === currentView && s.section === sec; }).length;
-          return '<option value="' + safeStr(sec) + '"' + (sec === currentSection ? ' selected' : '') + '>شعبة ' + sec + ' (' + count + ' طالب)</option>';
-        }).join('') + '</select>';
-    } else {
-      document.getElementById('sectionTabs').innerHTML = secs.map(function(sec) {
+    document.getElementById('sectionTabs').innerHTML = secs.map(function(sec) {
       var count = students.filter(function(s) { return s.level === currentView && s.section === sec; }).length;
       return '<button class="section-tab' + (sec === currentSection ? ' active' : '') + '" onclick="switchSection(\'' + safeStr(sec) + '\')">شعبة ' + sec + ' <span class="count">(' + count + ')</span></button>';
     }).join('');
-    }
   }
 }
 
@@ -2425,7 +2443,7 @@ function renderAllStudents() {
 
 function marksKey(level, section) { return level + '::' + section; }
 function marksRec(sid) {
-  var kk = marksKey(currentView, currentSection);
+  var kk = marksKey(markGrade, markSection);
   if (!marks[kk]) marks[kk] = {};
   if (!marks[kk][sid]) marks[kk][sid] = { t: 0 };
   return marks[kk][sid];
@@ -2433,19 +2451,26 @@ function marksRec(sid) {
 function markN(v) { var n = Number(v); return isNaN(n) ? 0 : n; }
 
 function renderMarks() {
-  var level = currentView;
-  var section = currentSection;
+  var levels = getLevels();
+  if (!levels.length) { document.getElementById('marksView').innerHTML = '<div style="background:white;border-radius:12px;padding:30px;text-align:center;color:#94a3b8;">لا توجد صفوف بعد. أضفها من ⚙️ الإعدادات.</div>'; return; }
+  var level = markGrade;
+  var section = markSection;
+  if (!levels.includes(level)) level = markGrade = levels[0];
   var secs = getSections(level);
-  if (!secs.includes(section)) {
-    section = currentSection = secs.length ? secs[0] : 'أ';
-  }
+  if (!secs.includes(section)) section = markSection = secs.length ? secs[0] : '';
   var clsStudents = students.filter(function(s) { return s.level === level && s.section === section; });
   var kk = marksKey(level, section);
   if (!marks[kk]) marks[kk] = {};
 
   var html = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:10px;">';
-  html += '<h2 style="font-size:17px;color:#1e3a5f;margin:0;">📑 سجل علامات <span style="color:#64748b;font-weight:400;">' + level + (section ? ' - شعبة ' + section : '') + '</span> <span style="font-size:12px;color:#94a3b8;font-weight:400;">(' + clsStudents.length + ' طالب)</span></h2>';
+  html += '<h2 style="font-size:17px;color:#1e3a5f;margin:0;">📑 سجل العلامات <span style="color:#64748b;font-weight:400;">' + level + (section ? ' - شعبة ' + section : '') + '</span> <span style="font-size:12px;color:#94a3b8;font-weight:400;">(' + clsStudents.length + ' طالب)</span></h2>';
   html += '<button class="btn btn-secondary" onclick="printMarks()">🖨️ طباعة الكشف</button>';
+  html += '</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;background:white;border-radius:12px;padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">';
+  html += '<span style="font-size:13px;color:#475569;font-weight:600;">الصف:</span>';
+  html += '<select class="section-select" onchange="setMarkGrade(this.value)">' + levels.map(function(l) { return '<option value="' + safeStr(l) + '"' + (l === level ? ' selected' : '') + '>' + l + '</option>'; }).join('') + '</select>';
+  html += '<span style="font-size:13px;color:#475569;font-weight:600;">الشعبة:</span>';
+  html += '<select class="section-select" id="markSectionSel" onchange="setMarkSection(this.value)">' + secs.map(function(sec) { return '<option value="' + safeStr(sec) + '"' + (sec === section ? ' selected' : '') + '>شعبة ' + sec + ' (' + students.filter(function(s) { return s.level === level && s.section === sec; }).length + ' طالب)</option>'; }).join('') + '</select>';
   html += '</div>';
   html += '<div style="overflow-x:auto;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);padding-bottom:8px;">';
 
@@ -2528,7 +2553,7 @@ function renderMarks() {
 
   html += '</tbody></table></div>';
 
-  document.getElementById('tableWrap').innerHTML = html;
+  document.getElementById('marksView').innerHTML = html;
 }
 function toggleMark(sid, field, el) {
   var rec = marksRec(sid);
@@ -2548,7 +2573,7 @@ function setMarkNum(sid, field, el) {
   updateMarksTotals(sid);
 }
 function updateMarksTotals(sid) {
-  var kk = marksKey(currentView, currentSection);
+  var kk = marksKey(markGrade, markSection);
   var rec = marks[kk][sid] || {};
   var m9 = markN(rec.p9) + markN(rec.w9);
   var beh = markN(rec.b1) + markN(rec.b2) + markN(rec.b3) + markN(rec.b4) + markN(rec.b5);
@@ -2564,8 +2589,8 @@ function updateMarksTotals(sid) {
   });
 }
 function printMarks() {
-  var level = currentView;
-  var section = currentSection;
+  var level = markGrade;
+  var section = markSection;
   var clsStudents = students.filter(function(s) { return s.level === level && s.section === section; });
   var kk = marksKey(level, section);
   var html = '<div id="printArea">';
