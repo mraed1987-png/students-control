@@ -2474,52 +2474,23 @@ function renderMarks() {
   html += '</div>';
   html += '<div style="overflow-x:auto;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);padding-bottom:8px;">';
 
-  html += '<table class="marks-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:1250px;">';
+  html += '<table class="marks-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px;">';
   html += '<thead>';
   html += '<tr style="background:#1e3a5f;color:white;">';
-  html += '<th rowspan="4" style="padding:6px;width:30px;">#</th>';
-  html += '<th rowspan="4" style="padding:6px;text-align:right;min-width:150px;">اسم الطالب</th>';
-  html += '<th colspan="15" style="padding:6px;">تقويم الشهر الأول <span style="color:#fbbf24;">(30 علامة)</span></th>';
-  html += '<th colspan="1" style="padding:6px;background:#16334f;">التقويم المعتمد على الأداء <span style="color:#fbbf24;">(30)</span></th>';
-  html += '<th colspan="3" style="padding:6px;">التقويم النهائي <span style="color:#fbbf24;">(40)</span></th>';
-  html += '<th rowspan="4" style="padding:6px;min-width:44px;background:#16334f;">المجموع <span style="color:#fbbf24;">(100)</span></th>';
-  html += '</tr>';
-  html += '<tr style="background:#24466e;color:white;">';
-  html += '<th colspan="9" style="padding:5px;">تقويم الأداء</th>';
-  html += '<th colspan="6" style="padding:5px;">السلوكيات <span style="color:#fbbf24;">(5 علامات)</span></th>';
-  html += '<th style="padding:5px;"></th>';
-  html += '<th colspan="3" style="padding:5px;"></th>';
+  html += '<th rowspan="2" style="padding:7px;width:32px;">#</th>';
+  html += '<th rowspan="2" style="padding:7px;text-align:right;min-width:170px;">اسم الطالب</th>';
+  html += '<th colspan="3" style="padding:7px;">تقويم الشهر الأول <span style="color:#fbbf24;">(30 علامة)</span></th>';
+  html += '<th rowspan="2" style="padding:7px;background:#16334f;">التقويم المعتمد على الأداء <span style="color:#fbbf24;">(30)</span></th>';
+  html += '<th colspan="3" style="padding:7px;">التقويم النهائي <span style="color:#fbbf24;">(40)</span></th>';
+  html += '<th rowspan="2" style="padding:7px;min-width:52px;background:#16334f;">المجموع <span style="color:#fbbf24;">(100)</span></th>';
   html += '</tr>';
   html += '<tr style="background:#2b5280;color:white;">';
-  html += '<th colspan="3" style="padding:5px;">شهر 9</th>';
-  html += '<th colspan="2" style="padding:5px;">شهر 10</th>';
-  html += '<th colspan="2" style="padding:5px;">شهر 11</th>';
-  html += '<th colspan="2" style="padding:5px;">شهر 12</th>';
-  html += '<th colspan="5" style="padding:5px;">علامة لكل سلوك</th>';
-  html += '<th style="padding:5px;">المجموع</th>';
-  html += '<th style="padding:5px;"></th>';
-  html += '<th colspan="3" style="padding:5px;"></th>';
-  html += '</tr>';
-  html += '<tr style="background:#3a6496;color:white;">';
-  html += '<th style="padding:5px;">ورقة وقلم <span style="color:#fbbf24;font-size:10px;">(25)</span></th>';
-  html += '<th style="padding:5px;">عملي <span style="color:#fbbf24;font-size:10px;">(5)</span></th>';
-  html += '<th style="padding:5px;">المجموع <span style="color:#fbbf24;font-size:10px;">(30)</span></th>';
-  html += '<th style="padding:5px;">رقم النتاج</th>';
-  html += '<th style="padding:5px;">العلامة <span style="color:#fbbf24;font-size:10px;">(5)</span></th>';
-  html += '<th style="padding:5px;">رقم النتاج</th>';
-  html += '<th style="padding:5px;">العلامة <span style="color:#fbbf24;font-size:10px;">(5)</span></th>';
-  html += '<th style="padding:5px;">رقم النتاج</th>';
-  html += '<th style="padding:5px;">العلامة <span style="color:#fbbf24;font-size:10px;">(5)</span></th>';
-  html += '<th style="padding:5px;">1</th>';
-  html += '<th style="padding:5px;">2</th>';
-  html += '<th style="padding:5px;">3</th>';
-  html += '<th style="padding:5px;">4</th>';
-  html += '<th style="padding:5px;">5</th>';
-  html += '<th style="padding:5px;">المجموع</th>';
-  html += '<th style="padding:5px;">المجموع</th>';
-  html += '<th style="padding:5px;">نظري <span style="color:#fbbf24;font-size:10px;">(34)</span></th>';
-  html += '<th style="padding:5px;">عملي <span style="color:#fbbf24;font-size:10px;">(6)</span></th>';
-  html += '<th style="padding:5px;">المجموع <span style="color:#fbbf24;font-size:10px;">(40)</span></th>';
+  html += '<th style="padding:6px;">كتابي <span style="color:#fbbf24;font-size:10px;">(25)</span></th>';
+  html += '<th style="padding:6px;">عملي <span style="color:#fbbf24;font-size:10px;">(5)</span></th>';
+  html += '<th style="padding:6px;">المجموع <span style="color:#fbbf24;font-size:10px;">(30)</span></th>';
+  html += '<th style="padding:6px;">كتابي <span style="color:#fbbf24;font-size:10px;">(34)</span></th>';
+  html += '<th style="padding:6px;">عملي <span style="color:#fbbf24;font-size:10px;">(6)</span></th>';
+  html += '<th style="padding:6px;">المجموع <span style="color:#fbbf24;font-size:10px;">(40)</span></th>';
   html += '</tr>';
   html += '</thead>';
   html += '<tbody>';
@@ -2527,58 +2498,31 @@ function renderMarks() {
   clsStudents.forEach(function(s, i) {
     var rec = marks[kk][s.id] || {};
     var m9 = markN(rec.p9) + markN(rec.w9);
-    var beh = markN(rec.b1) + markN(rec.b2) + markN(rec.b3) + markN(rec.b4) + markN(rec.b5);
     var fin = markN(rec.finT) + markN(rec.finW);
     var total = m9 + markN(rec.perf) + fin;
     var nid = s.id;
     var inp = function(field, opts) {
       opts = opts || {};
       var v = rec[field] !== undefined ? rec[field] : '';
-      if (field === 'b1' || field === 'b2' || field === 'b3' || field === 'b4' || field === 'b5') {
-        var checked = v === '1';
-        return '<span class="mk-ckb' + (checked ? ' checked' : '') + '" id="ckb_' + nid + '_' + field + '" onclick="toggleMark(\'' + nid + '\',\'' + field + '\',this)">✓</span>';
-      }
       return '<input type="number" class="mark-inp' + (opts.small ? ' small' : '') + '" id="mk_' + nid + '_' + field + '" value="' + (v === undefined ? '' : v) + '" min="0" oninput="setMarkNum(\'' + nid + '\',\'' + field + '\',this)">';
     };
     html += '<tr style="border-bottom:1px solid #eef2f7;">';
-    html += '<td style="padding:5px;text-align:center;color:#94a3b8;">' + (i + 1) + '</td>';
-    html += '<td style="padding:5px;text-align:right;font-weight:600;">' + escapeHtml(s.name) + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('p9') + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('w9') + '</td>';
-    html += '<td class="tot-cell" data-v="' + m9 + '" style="padding:5px;text-align:center;background:#f1f5f9;" data-act="m9||' + nid + '">' + m9 + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('n10', { small: true }) + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('m10', { small: true }) + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('n11', { small: true }) + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('m11', { small: true }) + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('n12', { small: true }) + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('m12', { small: true }) + '</td>';
-    html += '<td style="padding:3px;text-align:center;">' + inp('b1') + '</td>';
-    html += '<td style="padding:3px;text-align:center;">' + inp('b2') + '</td>';
-    html += '<td style="padding:3px;text-align:center;">' + inp('b3') + '</td>';
-    html += '<td style="padding:3px;text-align:center;">' + inp('b4') + '</td>';
-    html += '<td style="padding:3px;text-align:center;">' + inp('b5') + '</td>';
-    html += '<td style="padding:5px;text-align:center;background:#f1f5f9;" data-act="beh||' + nid + '">' + beh + '</td>';
-    html += '<td style="padding:4px;text-align:center;background:#eef2f7;">' + inp('perf', { small: true }) + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('finT', { small: true }) + '</td>';
-    html += '<td style="padding:4px;text-align:center;">' + inp('finW', { small: true }) + '</td>';
-    html += '<td style="padding:5px;text-align:center;background:#f1f5f9;" data-act="fin||' + nid + '">' + fin + '</td>';
-    html += '<td style="padding:6px;text-align:center;background:#16334f;color:white;font-weight:700;" data-act="total||' + nid + '">' + total + '</td>';
+    html += '<td style="padding:6px;text-align:center;color:#94a3b8;">' + (i + 1) + '</td>';
+    html += '<td style="padding:6px;text-align:right;font-weight:600;">' + escapeHtml(s.name) + '</td>';
+    html += '<td style="padding:5px;text-align:center;">' + inp('p9') + '</td>';
+    html += '<td style="padding:5px;text-align:center;">' + inp('w9') + '</td>';
+    html += '<td class="tot-cell" style="padding:6px;text-align:center;background:#f1f5f9;" data-act="m9||' + nid + '">' + m9 + '</td>';
+    html += '<td style="padding:5px;text-align:center;background:#eef2f7;">' + inp('perf', { small: true }) + '</td>';
+    html += '<td style="padding:5px;text-align:center;">' + inp('finT', { small: true }) + '</td>';
+    html += '<td style="padding:5px;text-align:center;">' + inp('finW', { small: true }) + '</td>';
+    html += '<td style="padding:6px;text-align:center;background:#f1f5f9;" data-act="fin||' + nid + '">' + fin + '</td>';
+    html += '<td style="padding:7px;text-align:center;background:#16334f;color:white;font-weight:700;" data-act="total||' + nid + '">' + total + '</td>';
     html += '</tr>';
   });
 
   html += '</tbody></table></div>';
 
   document.getElementById('marksView').innerHTML = html;
-}
-function toggleMark(sid, field, el) {
-  var rec = marksRec(sid);
-  var cur = rec[field] === '1';
-  rec[field] = cur ? '0' : '1';
-  rec.t = Date.now();
-  saveData();
-  el.classList.toggle('checked', rec[field] === '1');
-  updateMarksTotals(sid);
-  showToast('تم حفظ العلامات');
 }
 function setMarkNum(sid, field, el) {
   var rec = marksRec(sid);
@@ -2591,14 +2535,12 @@ function updateMarksTotals(sid) {
   var kk = marksKey(markGrade, markSection);
   var rec = marks[kk][sid] || {};
   var m9 = markN(rec.p9) + markN(rec.w9);
-  var beh = markN(rec.b1) + markN(rec.b2) + markN(rec.b3) + markN(rec.b4) + markN(rec.b5);
   var fin = markN(rec.finT) + markN(rec.finW);
   var total = m9 + markN(rec.perf) + fin;
-  var tds = document.querySelectorAll('[data-act="m9||' + sid + '"], [data-act="beh||' + sid + '"], [data-act="fin||' + sid + '"], [data-act="total||' + sid + '"]');
+  var tds = document.querySelectorAll('[data-act="m9||' + sid + '"], [data-act="fin||' + sid + '"], [data-act="total||' + sid + '"]');
   tds.forEach(function(td) {
     var act = td.getAttribute('data-act');
     if (act === 'm9||' + sid) td.textContent = m9;
-    else if (act === 'beh||' + sid) td.textContent = beh;
     else if (act === 'fin||' + sid) td.textContent = fin;
     else td.textContent = total;
   });
@@ -2621,14 +2563,14 @@ function printMarks() {
   html += '<h3>سجل العلامات - ' + level + (section ? ' - شعبة ' + section : '') + '</h3>';
   html += '</div>';
   html += '<table><thead><tr>';
-  html += '<th>#</th><th>الطالب</th><th>ورقة وقلم<br>(25)</th><th>عملي<br>(5)</th><th>مجموع شهر9<br>(30)</th><th>رقم 10</th><th>علامة 10<br>(5)</th><th>رقم 11</th><th>علامة 11<br>(5)</th><th>رقم 12</th><th>علامة 12<br>(5)</th><th>سلوك<br>1-5</th><th>المجموع<br>(5)</th><th>الأداء<br>(30)</th><th>نظري<br>(34)</th><th>عملي<br>(6)</th><th>مجموع نهائي<br>(40)</th><th>المجموع<br>(100)</th></tr></thead><tbody>';
+  html += '<th>#</th><th>الطالب</th><th colspan="3">تقويم الشهر الأول (30)</th><th rowspan="2">التقويم المعتمد على الأداء<br>(30)</th><th colspan="3">التقويم النهائي (40)</th><th rowspan="2">المجموع<br>(100)</th></tr>';
+  html += '<tr><th></th><th></th><th>كتابي (25)</th><th>عملي (5)</th><th>المجموع</th><th>كتابي (34)</th><th>عملي (6)</th><th>المجموع</th></tr></thead><tbody>';
   clsStudents.forEach(function(s, i) {
     var rec = marks[kk][s.id] || {};
     var m9 = markN(rec.p9) + markN(rec.w9);
-    var beh = markN(rec.b1) + markN(rec.b2) + markN(rec.b3) + markN(rec.b4) + markN(rec.b5);
     var fin = markN(rec.finT) + markN(rec.finW);
     var total = m9 + markN(rec.perf) + fin;
-    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + (rec.p9 || '') + '</td><td>' + (rec.w9 || '') + '</td><td>' + m9 + '</td><td>' + (rec.n10 || '') + '</td><td>' + (rec.m10 || '') + '</td><td>' + (rec.n11 || '') + '</td><td>' + (rec.m11 || '') + '</td><td>' + (rec.n12 || '') + '</td><td>' + (rec.m12 || '') + '</td><td>' + beh + '</td><td>' + beh + '</td><td>' + (rec.perf || '') + '</td><td>' + (rec.finT || '') + '</td><td>' + (rec.finW || '') + '</td><td>' + fin + '</td><td>' + total + '</td></tr>';
+    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + (rec.p9 || '') + '</td><td>' + (rec.w9 || '') + '</td><td>' + m9 + '</td><td>' + (rec.perf || '') + '</td><td>' + (rec.finT || '') + '</td><td>' + (rec.finW || '') + '</td><td>' + fin + '</td><td>' + total + '</td></tr>';
   });
   html += '</tbody></table></div>';
   var div = document.createElement('div');
