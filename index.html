@@ -2522,9 +2522,12 @@ function renderMarks() {
 
   clsStudents.forEach(function(s, i) {
     var rec = marks[kk][s.id] || {};
-    var m9 = markN(rec.p9) + markN(rec.w9);
-    var fin = markN(rec.finT) + markN(rec.finW);
-    var total = m9 + markN(rec.perf) + fin;
+    var hasM9 = (rec.p9 !== undefined && rec.p9 !== '') || (rec.w9 !== undefined && rec.w9 !== '');
+    var hasFin = (rec.finT !== undefined && rec.finT !== '') || (rec.finW !== undefined && rec.finW !== '');
+    var hasAny = hasM9 || hasFin || (rec.perf !== undefined && rec.perf !== '');
+    var m9 = hasM9 ? markN(rec.p9) + markN(rec.w9) : '';
+    var fin = hasFin ? markN(rec.finT) + markN(rec.finW) : '';
+    var total = hasAny ? markN(rec.p9) + markN(rec.w9) + markN(rec.perf) + markN(rec.finT) + markN(rec.finW) : '';
     var nid = s.id;
     var inp = function(field, opts) {
       opts = opts || {};
@@ -2569,10 +2572,14 @@ function renderMarks() {
 }
 function setMarkNum(sid, field, el) {
   var rec = marksRec(sid);
-  rec[field] = el.value.trim();
+  rec[field] = normalizeNum(el.value.trim());
   rec.t = Date.now();
   saveData();
   updateMarksTotals(sid);
+}
+function normalizeNum(v) {
+  var n = parseFloat(v);
+  return isNaN(n) ? '' : String(n);
 }
 function toggleMark(sid, field, el) {
   var rec = marksRec(sid);
@@ -2585,9 +2592,12 @@ function toggleMark(sid, field, el) {
 function updateMarksTotals(sid) {
   var kk = marksKey(markGrade, markSection);
   var rec = marks[kk][sid] || {};
-  var m9 = markN(rec.p9) + markN(rec.w9);
-  var fin = markN(rec.finT) + markN(rec.finW);
-  var total = m9 + markN(rec.perf) + fin;
+  var hasM9 = (rec.p9 !== undefined && rec.p9 !== '') || (rec.w9 !== undefined && rec.w9 !== '');
+  var hasFin = (rec.finT !== undefined && rec.finT !== '') || (rec.finW !== undefined && rec.finW !== '');
+  var hasAny = hasM9 || hasFin || (rec.perf !== undefined && rec.perf !== '');
+  var m9 = hasM9 ? markN(rec.p9) + markN(rec.w9) : '';
+  var fin = hasFin ? markN(rec.finT) + markN(rec.finW) : '';
+  var total = hasAny ? markN(rec.p9) + markN(rec.w9) + markN(rec.perf) + markN(rec.finT) + markN(rec.finW) : '';
   var tds = document.querySelectorAll('[data-act="m9||' + sid + '"], [data-act="fin||' + sid + '"], [data-act="total||' + sid + '"]');
   tds.forEach(function(td) {
     var act = td.getAttribute('data-act');
@@ -2619,8 +2629,12 @@ function printMarks() {
   clsStudents.forEach(function(s, i) {
     var rec = marks[kk][s.id] || {};
     var m9 = markN(rec.p9) + markN(rec.w9);
-    var fin = markN(rec.finT) + markN(rec.finW);
-    var total = m9 + markN(rec.perf) + fin;
+    var hasM9 = (rec.p9 !== undefined && rec.p9 !== '') || (rec.w9 !== undefined && rec.w9 !== '');
+    var hasFin = (rec.finT !== undefined && rec.finT !== '') || (rec.finW !== undefined && rec.finW !== '');
+    var hasAny = hasM9 || hasFin || (rec.perf !== undefined && rec.perf !== '');
+    var m9 = hasM9 ? markN(rec.p9) + markN(rec.w9) : '';
+    var fin = hasFin ? markN(rec.finT) + markN(rec.finW) : '';
+    var total = hasAny ? markN(rec.p9) + markN(rec.w9) + markN(rec.perf) + markN(rec.finT) + markN(rec.finW) : '';
     html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + (rec.p9 || '') + '</td><td>' + (rec.w9 || '') + '</td><td>' + m9 + '</td><td>' + (rec.n9 || '') + '</td><td>' + (rec.a9 || '') + '</td><td>' + (rec.n10 || '') + '</td><td>' + (rec.m10 || '') + '</td><td>' + (rec.n11 || '') + '</td><td>' + (rec.m11 || '') + '</td><td>' + (rec.n12 || '') + '</td><td>' + (rec.m12 || '') + '</td><td>' + (rec.b1 === '1' ? '✓' : '') + '</td><td>' + (rec.b2 === '1' ? '✓' : '') + '</td><td>' + (rec.b3 === '1' ? '✓' : '') + '</td><td>' + (rec.b4 === '1' ? '✓' : '') + '</td><td>' + (rec.b5 === '1' ? '✓' : '') + '</td><td>' + (rec.act || '') + '</td><td>' + (rec.perf || '') + '</td><td>' + (rec.finT || '') + '</td><td>' + (rec.finW || '') + '</td><td>' + fin + '</td><td>' + total + '</td></tr>';
   });
   html += '</tbody></table></div>';
