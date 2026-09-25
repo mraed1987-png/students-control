@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -635,6 +635,13 @@ tr.absent:hover td { background: #fee2e2; }
   #paperArea .paper-foot { font-size: 10px; color: #475569; margin-top: 6px; display: flex; justify-content: space-between; }
   #paperArea .paper-legend { font-size: 9px; color: #475569; text-align: center; margin-top: 3px; }
 }
+.marks-table th, .marks-table td { border: 1px solid #dbe4f0; }
+.mark-inp { width: 38px; padding: 3px 4px; text-align: center; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-family: inherit; font-weight: 600; color: #1e3a5f; }
+.mark-inp.small { width: 28px; font-size: 11px; }
+.mark-inp:focus { outline: 2px solid #3b82f6; border-color: #3b82f6; }
+.mk-ckb { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border: 2px solid #cbd5e1; border-radius: 5px; cursor: pointer; font-size: 12px; color: transparent; background: white; user-select: none; }
+.mk-ckb.checked { background: #10b981; border-color: #10b981; color: white; }
+.tot-cell { font-weight: 700; }
 </style>
 </head>
 <body>
@@ -962,6 +969,7 @@ const CONFIG_KEY = 'studentTrackerConfig';
 const SESSIONS_KEY = 'studentSessions';
 const SYNC_KEY = 'studentTrackerSync';
 const DEL_KEY = 'studentTrackerDeleted';
+const MARKS_KEY = 'studentTrackerMarks';
 const GIST_FILE = 'students-control-data.json';
 const GIST_API = 'https://api.github.com/gists';
 let syncConf = { enabled: false, token: '', gistId: '', lastSyncAt: '' };
@@ -982,6 +990,8 @@ const DEFAULT_SCHEDULE = {
 let students = [];
 let config = { teacherName: '', schoolName: '', directorate: '', academicYear: '', semester: '', levels: {}, schedule: {} };
 let sessions = {};
+let marks = {};
+let marksMode = false;
 let currentView = null;
 let currentSection = 'أ';
 let currentSessDate = '';
@@ -1073,6 +1083,10 @@ function loadData() {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) students = JSON.parse(data);
   } catch(e) { students = []; }
+  try {
+    var mRaw = localStorage.getItem(MARKS_KEY);
+    marks = mRaw ? JSON.parse(mRaw) : {};
+  } catch(e) { marks = {}; }
 
   if (!Object.keys(config.levels).length) {
     const levelSet = new Set(students.map(s => s.level));
@@ -1109,6 +1123,7 @@ function loadData() {
   if (savedView === 'settings' || savedView === 'schedule' || savedView === 'reports' || savedView === 'all' || savedView === 'log') currentView = savedView;
   else if (savedView && levels.includes(savedView)) currentView = savedView;
   else currentView = levels.length ? levels[0] : 'settings';
+  marksMode = levels.includes(currentView) && localStorage.getItem(STORAGE_KEY + '_marksMode') === '1';
 
   currentSection = savedSection || (getSections(currentView).length ? getSections(currentView)[0] : 'أ');
   if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all') {
@@ -1123,8 +1138,11 @@ function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
   localStorage.setItem(STORAGE_KEY + '_view', currentView);
   localStorage.setItem(STORAGE_KEY + '_section', currentSection);
+  localStorage.setItem(STORAGE_KEY + '_marksMode', marksMode ? '1' : '0');
+  saveMarks();
   scheduleAutoPush();
 }
+function saveMarks() { localStorage.setItem(MARKS_KEY, JSON.stringify(marks)); }
 
 function showToast(msg, type) {
   if (!type) type = 'success';
@@ -1139,8 +1157,18 @@ function safeStr(s) { return ('' + s).replace(/'/g, "\\'"); }
 
 function switchLevel(level) {
   currentView = level;
+  marksMode = false;
   const secs = getSections(level);
   if (!secs.includes(currentSection)) currentSection = secs.length ? secs[0] : 'أ';
+  saveData();
+  renderAll();
+}
+
+function switchToMarks() {
+  var levels = getLevels();
+  if (!levels.length) { showToast('لا توجد صفوف بعد', 'error'); return; }
+  if (!levels.includes(currentView)) currentView = levels[0];
+  marksMode = true;
   saveData();
   renderAll();
 }
@@ -1268,7 +1296,8 @@ function renderAll() {
     document.getElementById('sessDate').value = currentSessDate;
     document.getElementById('sessPeriod').value = currentPeriod;
     populateSessLoad();
-    renderTable();
+    if (marksMode) renderMarks();
+    else renderTable();
   }
 }
 
@@ -1283,6 +1312,7 @@ function renderTabs() {
   '<button class="level-tab' + (currentView === 'schedule' ? ' active' : '') + '" onclick="switchToSchedule()">📋 جدولي</button>' +
   '<button class="level-tab' + (currentView === 'reports' ? ' active' : '') + '" onclick="switchToReports()">📊 تقارير</button>' +
   '<button class="level-tab' + (currentView === 'log' ? ' active' : '') + '" onclick="switchToLog()">📒 سجل المتابعة</button>' +
+  '<button class="level-tab' + (marksMode && currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all' && currentView !== 'log' ? ' active' : '') + '" onclick="switchToMarks()">📑 علامات</button>' +
   '<button class="level-tab settings-tab' + (currentView === 'settings' ? ' active' : '') + '" onclick="switchToSettings()">⚙️</button>';
 
   if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all' && currentView !== 'log') {
@@ -1805,6 +1835,10 @@ function removeLevel(name) {
     if (k.indexOf('_' + name + '_') > -1) delete sessions[k];
   });
   saveSessions();
+  Object.keys(marks).forEach(function(kk) {
+    if (kk.indexOf(name + '::') === 0) delete marks[kk];
+  });
+  saveMarks();
   saveConfig();
   saveData();
   var levels = getLevels();
@@ -2021,6 +2055,8 @@ function deleteStudent(id) {
     if (sessions[k].records) delete sessions[k].records[id];
   });
   saveSessions();
+  Object.keys(marks).forEach(function(kk) { if (marks[kk]) delete marks[kk][id]; });
+  saveMarks();
   renderAll();
   showToast('تم حذف الطالب');
 }
@@ -2030,8 +2066,10 @@ function clearAll() {
   students.forEach(function(s) { tombstoneId(s.id); });
   students = [];
   sessions = {};
+  marks = {};
   saveData();
   saveSessions();
+  saveMarks();
   renderAll();
   showToast('تم التفريغ');
 }
@@ -2359,6 +2397,177 @@ function renderAllStudents() {
     var ni = document.getElementById('allSearchInput');
     if (ni) { ni.focus(); ni.setSelectionRange(selStart, selEnd); }
   }
+}
+
+function marksKey(level, section) { return level + '::' + section; }
+function marksRec(sid) {
+  var kk = marksKey(currentView, currentSection);
+  if (!marks[kk]) marks[kk] = {};
+  if (!marks[kk][sid]) marks[kk][sid] = { t: 0 };
+  return marks[kk][sid];
+}
+function markN(v) { var n = Number(v); return isNaN(n) ? 0 : n; }
+
+function renderMarks() {
+  var level = currentView;
+  var section = currentSection;
+  var clsStudents = students.filter(function(s) { return s.level === level && s.section === section && s.deletedId !== '1'; });
+  var kk = marksKey(level, section);
+  if (!marks[kk]) marks[kk] = {};
+
+  var html = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+  html += '<h2 style="font-size:17px;color:#1e3a5f;margin:0;">📑 سجل علامات <span style="color:#64748b;font-weight:400;">' + level + (section ? ' - شعبة ' + section : '') + '</span> <span style="font-size:12px;color:#94a3b8;font-weight:400;">(' + clsStudents.length + ' طالب)</span></h2>';
+  html += '<button class="btn btn-secondary" onclick="printMarks()">🖨️ طباعة الكشف</button>';
+  html += '</div>';
+  html += '<div style="overflow-x:auto;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);padding-bottom:8px;">';
+
+  html += '<table class="marks-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:1250px;">';
+  html += '<thead>';
+  html += '<tr style="background:#1e3a5f;color:white;">';
+  html += '<th rowspan="3" style="padding:6px;width:30px;">#</th>';
+  html += '<th rowspan="3" style="padding:6px;text-align:right;min-width:150px;">اسم الطالب</th>';
+  html += '<th colspan="9" style="padding:6px;">تقويم الشهر الأول <span style="color:#fbbf24;">(30 علامة)</span></th>';
+  html += '<th colspan="6" style="padding:6px;">السلوكيات <span style="color:#fbbf24;">(5 علامات)</span></th>';
+  html += '<th colspan="1" style="padding:6px;background:#16334f;">التقويم المعتمد على الأداء <span style="color:#fbbf24;">(30)</span></th>';
+  html += '<th colspan="3" style="padding:6px;">التقويم النهائي <span style="color:#fbbf24;">(40)</span></th>';
+  html += '<th rowspan="3" style="padding:6px;min-width:44px;background:#16334f;">المجموع <span style="color:#fbbf24;">(100)</span></th>';
+  html += '</tr>';
+  html += '<tr style="background:#24466e;color:white;">';
+  html += '<th colspan="9" style="padding:5px;">تقويم الأداء</th>';
+  html += '<th colspan="6" style="padding:5px;">سلوك 1..5</th>';
+  html += '<th style="padding:5px;background:#16334f;">المجموع</th>';
+  html += '<th colspan="3" style="padding:5px;">نظري + عملي</th>';
+  html += '</tr>';
+  html += '<tr style="background:#2b5280;color:white;">';
+  html += '<th style="padding:5px;">ورقة وقلم <span style="color:#fbbf24;font-size:10px;">(25)</span></th>';
+  html += '<th style="padding:5px;">عملي <span style="color:#fbbf24;font-size:10px;">(5)</span></th>';
+  html += '<th style="padding:5px;">مجموع شهر 9</th>';
+  html += '<th style="padding:5px;">رقم النتاج<br><span style="font-size:10px;">10</span></th>';
+  html += '<th style="padding:5px;">العلامة<br><span style="font-size:10px;">10</span></th>';
+  html += '<th style="padding:5px;">رقم النتاج<br><span style="font-size:10px;">11</span></th>';
+  html += '<th style="padding:5px;">العلامة<br><span style="font-size:10px;">11</span></th>';
+  html += '<th style="padding:5px;">رقم النتاج<br><span style="font-size:10px;">12</span></th>';
+  html += '<th style="padding:5px;">العلامة<br><span style="font-size:10px;">12</span></th>';
+  html += '<th style="padding:5px;">سلوك 1</th><th style="padding:5px;">سلوك 2</th><th style="padding:5px;">سلوك 3</th><th style="padding:5px;">سلوك 4</th><th style="padding:5px;">سلوك 5</th>';
+  html += '<th style="padding:5px;">المجموع</th>';
+  html += '<th style="padding:5px;background:#16334f;">الأداء<br>(المجموع)</th>';
+  html += '<th style="padding:5px;">نظري</th><th style="padding:5px;">عملي</th><th style="padding:5px;">المجموع</th>';
+  html += '</tr>';
+  html += '</thead>';
+  html += '<tbody>';
+
+  clsStudents.forEach(function(s, i) {
+    var rec = marks[kk][s.id] || {};
+    var m9 = markN(rec.p9) + markN(rec.w9);
+    var beh = markN(rec.b1) + markN(rec.b2) + markN(rec.b3) + markN(rec.b4) + markN(rec.b5);
+    var fin = markN(rec.finT) + markN(rec.finW);
+    var total = m9 + markN(rec.perf) + fin;
+    var nid = s.id;
+    var inp = function(field, opts) {
+      opts = opts || {};
+      var v = rec[field] !== undefined ? rec[field] : '';
+      if (field === 'b1' || field === 'b2' || field === 'b3' || field === 'b4' || field === 'b5') {
+        var checked = v === '1';
+        return '<span class="mk-ckb' + (checked ? ' checked' : '') + '" id="ckb_' + nid + '_' + field + '" onclick="toggleMark(\'' + nid + '\',\'' + field + '\',this)">✓</span>';
+      }
+      return '<input type="number" class="mark-inp' + (opts.small ? ' small' : '') + '" id="mk_' + nid + '_' + field + '" value="' + (v === undefined ? '' : v) + '" min="0" oninput="setMarkNum(\'' + nid + '\',\'' + field + '\',this)">';
+    };
+    html += '<tr style="border-bottom:1px solid #eef2f7;">';
+    html += '<td style="padding:5px;text-align:center;color:#94a3b8;">' + (i + 1) + '</td>';
+    html += '<td style="padding:5px;text-align:right;font-weight:600;">' + escapeHtml(s.name) + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('p9') + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('w9') + '</td>';
+    html += '<td class="tot-cell" data-v="' + m9 + '" style="padding:5px;text-align:center;background:#f1f5f9;" data-act="m9||' + nid + '">' + m9 + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('n10', { small: true }) + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('m10', { small: true }) + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('n11', { small: true }) + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('m11', { small: true }) + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('n12', { small: true }) + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('m12', { small: true }) + '</td>';
+    html += '<td style="padding:3px;text-align:center;">' + inp('b1') + '</td>';
+    html += '<td style="padding:3px;text-align:center;">' + inp('b2') + '</td>';
+    html += '<td style="padding:3px;text-align:center;">' + inp('b3') + '</td>';
+    html += '<td style="padding:3px;text-align:center;">' + inp('b4') + '</td>';
+    html += '<td style="padding:3px;text-align:center;">' + inp('b5') + '</td>';
+    html += '<td style="padding:5px;text-align:center;background:#f1f5f9;" data-act="beh||' + nid + '">' + beh + '</td>';
+    html += '<td style="padding:4px;text-align:center;background:#eef2f7;">' + inp('perf', { small: true }) + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('finT', { small: true }) + '</td>';
+    html += '<td style="padding:4px;text-align:center;">' + inp('finW', { small: true }) + '</td>';
+    html += '<td style="padding:5px;text-align:center;background:#f1f5f9;" data-act="fin||' + nid + '">' + fin + '</td>';
+    html += '<td style="padding:6px;text-align:center;background:#16334f;color:white;font-weight:700;" data-act="total||' + nid + '">' + total + '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+
+  document.getElementById('tableWrap').innerHTML = html;
+}
+function toggleMark(sid, field, el) {
+  var rec = marksRec(sid);
+  var cur = rec[field] === '1';
+  rec[field] = cur ? '0' : '1';
+  rec.t = Date.now();
+  saveData();
+  el.classList.toggle('checked', rec[field] === '1');
+  updateMarksTotals(sid);
+  showToast('تم حفظ العلامات');
+}
+function setMarkNum(sid, field, el) {
+  var rec = marksRec(sid);
+  rec[field] = el.value.trim();
+  rec.t = Date.now();
+  saveData();
+  updateMarksTotals(sid);
+}
+function updateMarksTotals(sid) {
+  var kk = marksKey(currentView, currentSection);
+  var rec = marks[kk][sid] || {};
+  var m9 = markN(rec.p9) + markN(rec.w9);
+  var beh = markN(rec.b1) + markN(rec.b2) + markN(rec.b3) + markN(rec.b4) + markN(rec.b5);
+  var fin = markN(rec.finT) + markN(rec.finW);
+  var total = m9 + markN(rec.perf) + fin;
+  var tds = document.querySelectorAll('[data-act="m9||' + sid + '"], [data-act="beh||' + sid + '"], [data-act="fin||' + sid + '"], [data-act="total||' + sid + '"]');
+  tds.forEach(function(td) {
+    var act = td.getAttribute('data-act');
+    if (act === 'm9||' + sid) td.textContent = m9;
+    else if (act === 'beh||' + sid) td.textContent = beh;
+    else if (act === 'fin||' + sid) td.textContent = fin;
+    else td.textContent = total;
+  });
+}
+function printMarks() {
+  var level = currentView;
+  var section = currentSection;
+  var clsStudents = students.filter(function(s) { return s.level === level && s.section === section && s.deletedId !== '1'; });
+  var kk = marksKey(level, section);
+  var html = '<div id="printArea">';
+  html += '<div class="print-header">';
+  html += '<h2>' + (config.schoolName || 'متابعة الطلاب') + '</h2>';
+  var meta = [];
+  if (config.directorate) meta.push('المديرية: ' + escapeHtml(config.directorate));
+  if (config.teacherName) meta.push('المعلم/ة: ' + escapeHtml(config.teacherName));
+  if (config.academicYear) meta.push('العام: ' + escapeHtml(config.academicYear));
+  if (config.semester) meta.push('الفصل: ' + escapeHtml(config.semester));
+  meta.push('التاريخ: ' + todayStr());
+  html += '<div class="print-meta">' + meta.join(' | ') + '</div>';
+  html += '<h3>سجل العلامات - ' + level + (section ? ' - شعبة ' + section : '') + '</h3>';
+  html += '</div>';
+  html += '<table><thead><tr>';
+  html += '<th>#</th><th>الطالب</th><th>ورقة وقلم<br>(25)</th><th>عملي<br>(5)</th><th>مجموع شهر9<br>(30)</th><th>رقم 10</th><th>علامة 10<br>(5)</th><th>رقم 11</th><th>علامة 11<br>(5)</th><th>رقم 12</th><th>علامة 12<br>(5)</th><th>سلوك<br>1-5</th><th>المجموع<br>(5)</th><th>الأداء<br>(30)</th><th>نظري<br>(34)</th><th>عملي<br>(6)</th><th>مجموع نهائي<br>(40)</th><th>المجموع<br>(100)</th></tr></thead><tbody>';
+  clsStudents.forEach(function(s, i) {
+    var rec = marks[kk][s.id] || {};
+    var m9 = markN(rec.p9) + markN(rec.w9);
+    var beh = markN(rec.b1) + markN(rec.b2) + markN(rec.b3) + markN(rec.b4) + markN(rec.b5);
+    var fin = markN(rec.finT) + markN(rec.finW);
+    var total = m9 + markN(rec.perf) + fin;
+    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + (rec.p9 || '') + '</td><td>' + (rec.w9 || '') + '</td><td>' + m9 + '</td><td>' + (rec.n10 || '') + '</td><td>' + (rec.m10 || '') + '</td><td>' + (rec.n11 || '') + '</td><td>' + (rec.m11 || '') + '</td><td>' + (rec.n12 || '') + '</td><td>' + (rec.m12 || '') + '</td><td>' + beh + '</td><td>' + beh + '</td><td>' + (rec.perf || '') + '</td><td>' + (rec.finT || '') + '</td><td>' + (rec.finW || '') + '</td><td>' + fin + '</td><td>' + total + '</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  window.print();
+  document.body.removeChild(div);
 }
 
 function logAggregate(s, from, to) {
@@ -2906,7 +3115,7 @@ function gistHeaders() {
   return { Authorization: 'token ' + syncConf.token, Accept: 'application/vnd.github+json' };
 }
 function buildBundle() {
-  return { app: 'متابعة الطلبة', version: 1, updatedAt: new Date().toISOString(), students: students, config: config, sessions: sessions, deletedIds: deletedIds };
+  return { app: 'متابعة الطلبة', version: 1, updatedAt: new Date().toISOString(), students: students, config: config, sessions: sessions, marks: marks, deletedIds: deletedIds };
 }
 function saveAllLocal() {
   saveData();
@@ -2956,6 +3165,28 @@ function mergeAll(remote) {
       if (!sessions[k].records) return;
       Object.keys(sessions[k].records).forEach(function(sid) {
         if (dead[sid]) { delete sessions[k].records[sid]; changed = true; }
+      });
+    });
+  }
+  if (remote.marks) {
+    Object.keys(remote.marks).forEach(function(kk) {
+      var rcell = remote.marks[kk];
+      if (!rcell || typeof rcell !== 'object') return;
+      if (!marks[kk]) { marks[kk] = {}; changed = true; }
+      var lcell = marks[kk];
+      Object.keys(rcell).forEach(function(sid) {
+        if (dead[sid]) return;
+        var rm = rcell[sid];
+        if (!rm || typeof rm !== 'object') return;
+        if (!lcell[sid]) { changed = true; lcell[sid] = rm; return; }
+        var lm = lcell[sid];
+        if ((lm.t || 0) < (rm.t || 0)) { changed = true; lcell[sid] = rm; }
+      });
+    });
+    Object.keys(marks).forEach(function(kk) {
+      if (!marks[kk] || typeof marks[kk] !== 'object') return;
+      Object.keys(marks[kk]).forEach(function(sid) {
+        if (dead[sid]) { delete marks[kk][sid]; changed = true; }
       });
     });
   }
