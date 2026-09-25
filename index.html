@@ -1157,7 +1157,6 @@ function safeStr(s) { return ('' + s).replace(/'/g, "\\'"); }
 
 function switchLevel(level) {
   currentView = level;
-  marksMode = false;
   const secs = getSections(level);
   if (!secs.includes(currentSection)) currentSection = secs.length ? secs[0] : 'أ';
   saveData();
@@ -1167,10 +1166,17 @@ function switchLevel(level) {
 function switchToMarks() {
   var levels = getLevels();
   if (!levels.length) { showToast('لا توجد صفوف بعد', 'error'); return; }
-  if (!levels.includes(currentView)) currentView = levels[0];
-  marksMode = true;
+  if (marksMode && levels.includes(currentView)) {
+    marksMode = false;
+  } else {
+    if (!levels.includes(currentView)) currentView = levels[0];
+    marksMode = true;
+  }
+  const secs = getSections(currentView);
+  if (!secs.includes(currentSection)) currentSection = secs.length ? secs[0] : 'أ';
   saveData();
   renderAll();
+  showToast(marksMode ? '📑 سجل العلامات' : '📋 جدول الحضور');
 }
 
 function switchSection(section) {
@@ -1296,8 +1302,13 @@ function renderAll() {
     document.getElementById('sessDate').value = currentSessDate;
     document.getElementById('sessPeriod').value = currentPeriod;
     populateSessLoad();
-    if (marksMode) renderMarks();
-    else renderTable();
+    if (marksMode) {
+      toolbar.style.display = 'none';
+      renderMarks();
+    } else {
+      toolbar.style.display = '';
+      renderTable();
+    }
   }
 }
 
@@ -2411,7 +2422,11 @@ function markN(v) { var n = Number(v); return isNaN(n) ? 0 : n; }
 function renderMarks() {
   var level = currentView;
   var section = currentSection;
-  var clsStudents = students.filter(function(s) { return s.level === level && s.section === section && s.deletedId !== '1'; });
+  var secs = getSections(level);
+  if (!secs.includes(section)) {
+    section = currentSection = secs.length ? secs[0] : 'أ';
+  }
+  var clsStudents = students.filter(function(s) { return s.level === level && s.section === section; });
   var kk = marksKey(level, section);
   if (!marks[kk]) marks[kk] = {};
 
@@ -2538,7 +2553,7 @@ function updateMarksTotals(sid) {
 function printMarks() {
   var level = currentView;
   var section = currentSection;
-  var clsStudents = students.filter(function(s) { return s.level === level && s.section === section && s.deletedId !== '1'; });
+  var clsStudents = students.filter(function(s) { return s.level === level && s.section === section; });
   var kk = marksKey(level, section);
   var html = '<div id="printArea">';
   html += '<div class="print-header">';
