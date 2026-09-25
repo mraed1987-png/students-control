@@ -642,6 +642,8 @@ tr.absent:hover td { background: #fee2e2; }
 .mk-ckb { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border: 2px solid #cbd5e1; border-radius: 5px; cursor: pointer; font-size: 12px; color: transparent; background: white; user-select: none; }
 .mk-ckb.checked { background: #10b981; border-color: #10b981; color: white; }
 .tot-cell { font-weight: 700; }
+.section-select { padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; font-weight: 600; color: #1e3a5f; background: white; cursor: pointer; min-width: 170px; }
+.section-select:focus { outline: 2px solid #3b82f6; border-color: #3b82f6; }
 </style>
 </head>
 <body>
@@ -1184,6 +1186,9 @@ function switchSection(section) {
   saveData();
   renderAll();
 }
+function switchSectionSelected(section) {
+  switchSection(section);
+}
 
 function switchToSettings() {
   currentView = 'settings';
@@ -1328,10 +1333,18 @@ function renderTabs() {
 
   if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all' && currentView !== 'log') {
     var secs = getSections(currentView);
-    document.getElementById('sectionTabs').innerHTML = secs.map(function(sec) {
+    if (marksMode) {
+      document.getElementById('sectionTabs').innerHTML = '<select class="section-select" id="sectionSelect" onchange="switchSectionSelected(this.value)">' +
+        secs.map(function(sec) {
+          var count = students.filter(function(s) { return s.level === currentView && s.section === sec; }).length;
+          return '<option value="' + safeStr(sec) + '"' + (sec === currentSection ? ' selected' : '') + '>شعبة ' + sec + ' (' + count + ' طالب)</option>';
+        }).join('') + '</select>';
+    } else {
+      document.getElementById('sectionTabs').innerHTML = secs.map(function(sec) {
       var count = students.filter(function(s) { return s.level === currentView && s.section === sec; }).length;
       return '<button class="section-tab' + (sec === currentSection ? ' active' : '') + '" onclick="switchSection(\'' + safeStr(sec) + '\')">شعبة ' + sec + ' <span class="count">(' + count + ')</span></button>';
     }).join('');
+    }
   }
 }
 
