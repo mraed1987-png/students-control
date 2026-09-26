@@ -630,7 +630,7 @@ tr.absent:hover td { background: #fee2e2; }
   .notes-input { width: 80px; }
 }
 @media print {
-  @page { size: A4 landscape; margin: 1cm; }
+  @page { size: A4 portrait; margin: 1cm; }
   body { background: white; }
   .container, .toast, .modal-overlay { display: none !important; }
   #printArea { display: block; direction: rtl; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
@@ -644,8 +644,9 @@ tr.absent:hover td { background: #fee2e2; }
   #printArea td { border: 1px solid #94a3b8; padding: 3px 2px; text-align: center; word-break: break-all; }
   #printArea tbody tr { page-break-inside: avoid; }
   #paperArea { direction: rtl; font-family: 'Segoe UI', Tahoma, sans-serif; }
-  #paperArea .paper-sheet { page-break-after: always; }
+  #paperArea .paper-sheet { page-break-after: always; page-break-inside: avoid; }
   #paperArea .paper-sheet:last-child { page-break-after: auto; }
+  #paperArea .paper-sheet table { page-break-after: avoid; }
   #paperArea .paper-head { text-align: center; margin-bottom: 4px; }
   #paperArea .paper-head h2 { font-size: 17px; margin: 0 0 4px; color: #1e3a5f; }
   #paperArea .paper-head .paper-meta { font-size: 10px; color: #334155; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 12px; padding: 0 2px; }
@@ -2639,6 +2640,17 @@ function updateMarksTotals(sid) {
     else td.textContent = total;
   });
 }
+function doPrint(mode) {
+  var dyn = document.getElementById('dynPageStyle');
+  if (dyn && dyn.parentNode) dyn.parentNode.removeChild(dyn);
+  if (mode === 'landscape') {
+    dyn = document.createElement('style');
+    dyn.id = 'dynPageStyle';
+    dyn.textContent = '@page { size: A4 landscape; margin: 1cm; }';
+    document.head.appendChild(dyn);
+  }
+  setTimeout(function() { window.print(); }, 60);
+}
 function printMarks() {
   var level = markGrade;
   var section = markSection;
@@ -2685,7 +2697,7 @@ function printMarks() {
   var div = document.createElement('div');
   div.innerHTML = html;
   document.body.appendChild(div);
-  window.print();
+  doPrint('landscape');
   document.body.removeChild(div);
 }
 
@@ -2852,7 +2864,7 @@ function printLog() {
   var div = document.createElement('div');
   div.innerHTML = html;
   document.body.appendChild(div);
-  window.print();
+  doPrint();
   document.body.removeChild(div);
 }
 
@@ -2912,7 +2924,7 @@ function printAllStudents() {
   var div = document.createElement('div');
   div.innerHTML = html;
   document.body.appendChild(div);
-  window.print();
+  doPrint();
   document.body.removeChild(div);
 }
 
@@ -2993,7 +3005,7 @@ function printWeekSheets() {
   var div = document.createElement('div');
   div.innerHTML = html;
   document.body.appendChild(div);
-  window.print();
+  doPrint();
   document.body.removeChild(div);
   showToast('تم إرسال ' + totalSheets + ' كشفاً (' + totalStudents + ' طالباً) للطباعة');
 }
@@ -3027,7 +3039,7 @@ function printPaperSheet() {
   var div = document.createElement('div');
   div.innerHTML = html;
   document.body.appendChild(div);
-  window.print();
+  doPrint();
   document.body.removeChild(div);
   showToast('تم إرسال الكشف للطباعة');
 }
@@ -3111,7 +3123,7 @@ function printSection(section) {
   var div = document.createElement('div');
   div.innerHTML = html;
   document.body.appendChild(div);
-    window.print();
+    doPrint();
     document.body.removeChild(div);
 }
 
