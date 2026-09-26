@@ -3296,6 +3296,23 @@ function mergeAll(remote) {
     ['teacherName','schoolName','directorate','academicYear','semester'].forEach(function(f) {
       if (remote.config[f] && remote.config[f] !== config[f]) { changed = true; config[f] = remote.config[f]; }
     });
+    if (remote.config.schedule && typeof remote.config.schedule === 'object') {
+      var rsch = remote.config.schedule;
+      Object.keys(rsch).forEach(function(day) {
+        var rday = rsch[day] || {};
+        if (!config.schedule[day]) { config.schedule[day] = {}; changed = true; }
+        var lday = config.schedule[day];
+        Object.keys(rday).forEach(function(p) {
+          if (lday[p] !== rday[p]) { changed = true; lday[p] = rday[p]; }
+        });
+      });
+      Object.keys(config.schedule).forEach(function(day) {
+        if (!rsch[day]) { changed = true; delete config.schedule[day]; return; }
+        Object.keys(config.schedule[day]).forEach(function(p) {
+          if (!(p in rsch[day])) { changed = true; delete config.schedule[day][p]; }
+        });
+      });
+    }
   }
   if (changed) { syncConf.lastSyncAt = new Date().toISOString(); saveSyncConf(); saveDeleted(); }
   return changed;
