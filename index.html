@@ -29,7 +29,23 @@ header {
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 header h1 { font-size: 24px; font-weight: 700; }
-.header-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.header-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.header-extra-tabs { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.extra-tab {
+  background: rgba(255,255,255,0.12);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.28);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all .2s;
+}
+.extra-tab:hover { background: rgba(255,255,255,0.22); }
+.extra-tab.active { background: #ffd700; color: #1e3a5f; border-color: #ffd700; }
 .btn {
   padding: 9px 18px;
   border: none;
@@ -661,6 +677,7 @@ tr.absent:hover td { background: #fee2e2; }
     <h1>📚 متابعة الطلاب</h1>
     <div class="header-btns">
       <button class="btn btn-primary" onclick="showAddModal()">+ إضافة طالب</button>
+      <div id="extraTabs" class="header-extra-tabs"></div>
       <button class="btn btn-success" onclick="showImportModal()">📥 استيراد</button>
       <button class="btn btn-secondary" onclick="exportCSV()">📤 Excel</button>
       <button class="btn btn-danger" onclick="clearAll()">🗑️ تفريغ</button>
@@ -1359,11 +1376,16 @@ function renderTabs() {
     return '<button class="level-tab' + (currentView === l ? ' active' : '') + '" onclick="switchLevel(\'' + safeStr(l) + '\')">' + l + ' <span class="badge">' + count + '</span></button>';
   }).join('') +
   '<button class="level-tab' + (currentView === 'all' ? ' active' : '') + '" onclick="switchToAll()">👥 جميع الطلاب <span class="badge">' + students.length + '</span></button>' +
-  '<button class="level-tab' + (currentView === 'schedule' ? ' active' : '') + '" onclick="switchToSchedule()">📋 جدولي</button>' +
-  '<button class="level-tab' + (currentView === 'reports' ? ' active' : '') + '" onclick="switchToReports()">📊 تقارير</button>' +
-  '<button class="level-tab' + (currentView === 'log' ? ' active' : '') + '" onclick="switchToLog()">📒 سجل المتابعة</button>' +
-  '<button class="level-tab' + (currentView === 'marks' ? ' active' : '') + '" onclick="switchToMarks()">📑 علامات</button>' +
-  '<button class="level-tab settings-tab' + (currentView === 'settings' ? ' active' : '') + '" onclick="switchToSettings()">⚙️</button>';
+  '<button class="level-tab' + (currentView === 'schedule' ? ' active' : '') + '" onclick="switchToSchedule()">📋 جدولي</button>';
+
+  var ex = document.getElementById('extraTabs');
+  if (ex) {
+    ex.innerHTML =
+      '<button class="extra-tab' + (currentView === 'reports' ? ' active' : '') + '" onclick="switchToReports()">📊 تقارير</button>' +
+      '<button class="extra-tab' + (currentView === 'log' ? ' active' : '') + '" onclick="switchToLog()">📒 سجل المتابعة</button>' +
+      '<button class="extra-tab' + (currentView === 'marks' ? ' active' : '') + '" onclick="switchToMarks()">📑 علامات</button>' +
+      '<button class="extra-tab' + (currentView === 'settings' ? ' active' : '') + '" onclick="switchToSettings()">⚙️ الإعدادات</button>';
+  }
 
   var act = levelContainer.querySelector('.level-tab.active');
   if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
