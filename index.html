@@ -2649,7 +2649,7 @@ function doPrint(mode) {
     dyn.textContent = '@page { size: A4 landscape; margin: 1cm; }';
     document.head.appendChild(dyn);
   }
-  setTimeout(function() { window.print(); }, 60);
+  window.print();
 }
 function printMarks() {
   var level = markGrade;
