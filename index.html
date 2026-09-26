@@ -55,13 +55,19 @@ header h1 { font-size: 24px; font-weight: 700; }
   border-radius: 0 0 14px 14px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   margin-bottom: 20px;
-  overflow: hidden;
+  overflow-x: auto;
 }
+.tabs-wrap::-webkit-scrollbar { display: none; }
 .level-tabs {
   display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   background: #f1f5f9;
   border-bottom: 1px solid #e2e8f0;
 }
+.level-tabs::-webkit-scrollbar { display: none; }
 .level-tab {
   padding: 14px 28px;
   font-weight: 700;
@@ -74,6 +80,8 @@ header h1 { font-size: 24px; font-weight: 700; }
   position: relative;
   transition: all 0.2s;
   border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .level-tab:hover { color: #1e3a5f; background: #e8edf5; }
 .level-tab.active { color: #1e3a5f; background: white; border-bottom-color: #2d5a87; }
@@ -1356,6 +1364,9 @@ function renderTabs() {
   '<button class="level-tab' + (currentView === 'log' ? ' active' : '') + '" onclick="switchToLog()">📒 سجل المتابعة</button>' +
   '<button class="level-tab' + (currentView === 'marks' ? ' active' : '') + '" onclick="switchToMarks()">📑 علامات</button>' +
   '<button class="level-tab settings-tab' + (currentView === 'settings' ? ' active' : '') + '" onclick="switchToSettings()">⚙️</button>';
+
+  var act = levelContainer.querySelector('.level-tab.active');
+  if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
   if (currentView !== 'settings' && currentView !== 'schedule' && currentView !== 'reports' && currentView !== 'all' && currentView !== 'log' && currentView !== 'marks') {
     var secs = getSections(currentView);
