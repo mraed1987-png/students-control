@@ -640,17 +640,21 @@ tr.absent:hover td { background: #fee2e2; }
   #printArea .print-header { margin-bottom: 6px; }
   #printArea table { width: 100%; min-width: 0 !important; border-collapse: collapse; font-size: 9px; }
   #printArea thead { display: table-header-group; }
+  #printArea .print-title th { background: none !important; color: #1e3a5f; font-size: 16px; border: none; padding: 0 2px 4px; }
+  #printArea .print-meta-row th { background: none !important; color: #475569; font-size: 10px; font-weight: 400; border: none; padding: 1px 2px; }
+  #printArea .print-subtitle th { background: none !important; color: #0c4a6e; font-size: 14px; font-weight: 700; border: none; border-bottom: 2px solid #334155; padding: 5px 2px 3px; }
   #printArea th { background: #1e3a5f; color: white; padding: 4px 2px; text-align: center; font-size: 9px; }
   #printArea td { border: 1px solid #94a3b8; padding: 3px 2px; text-align: center; word-break: break-all; }
   #printArea tbody tr { page-break-inside: avoid; }
   #paperArea { direction: rtl; font-family: 'Segoe UI', Tahoma, sans-serif; }
-  #paperArea .paper-sheet { page-break-after: always; page-break-inside: avoid; }
-  #paperArea .paper-sheet:last-child { page-break-after: auto; }
-  #paperArea .paper-sheet table { page-break-after: avoid; }
+  #paperArea .paper-sheet { page-break-before: auto; page-break-after: always; }
   #paperArea .paper-head { text-align: center; margin-bottom: 4px; }
   #paperArea .paper-head h2 { font-size: 17px; margin: 0 0 4px; color: #1e3a5f; }
   #paperArea .paper-head .paper-meta { font-size: 10px; color: #334155; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 12px; padding: 0 2px; }
   #paperArea .paper-head .paper-title { font-size: 14px; color: #0c4a6e; font-weight: 700; margin: 6px 0 2px; border-bottom: 2px solid #334155; padding-bottom: 3px; }
+  #paperArea .paper-sheet .s-title th { background: none !important; color: #1e3a5f; font-size: 17px; border: none; padding: 0 2px 4px; }
+  #paperArea .paper-sheet .s-meta th { background: none !important; color: #334155; font-size: 10px; font-weight: 400; border: none; padding: 1px 2px; }
+  #paperArea .paper-sheet .s-subtitle th { background: none !important; color: #0c4a6e; font-size: 14px; font-weight: 700; border: none; border-bottom: 2px solid #334155; padding: 5px 2px 3px; }
   #paperArea table { width: 100%; min-width: 0 !important; border-collapse: collapse; font-size: 9px; }
   #paperArea thead { display: table-header-group; }
   #paperArea th { background: #1e3a5f; color: white; padding: 4px 2px; text-align: center; font-size: 9px; }
@@ -3051,18 +3055,18 @@ function sheetHtml(level, section, list, date, period) {
   if (config.academicYear) meta.push('العام: ' + escapeHtml(config.academicYear));
   if (config.semester) meta.push('الفصل: ' + escapeHtml(config.semester));
   var teacherLine = config.teacherName ? 'المعلم/ة: ' + escapeHtml(config.teacherName) : '';
+  var cols = 9;
   var html = '<div class="paper-sheet">';
-  html += '<div class="paper-head">';
-  html += '<h2>' + escapeHtml(config.schoolName || 'متابعة الطلاب') + '</h2>';
-  html += '<div class="paper-meta">' + meta.join(' | ') + '</div>';
-  html += '<div class="paper-title">' + escapeHtml(level) + ' - شعبة ' + escapeHtml(section) + '</div>';
-  html += '<div class="paper-meta" style="margin-top:3px;">' +
-    '<span>التاريخ: ' + date + '</span>' +
-    '<span>الحصة: ' + (period ? ('ح' + period) : '____________') + '</span>' +
-    (teacherLine ? '<span>' + teacherLine + '</span>' : '') +
-    '</div>';
-  html += '</div>';
-  html += '<table><thead><tr>';
+  html += '<table>';
+  html += '<thead>';
+  html += '<tr class="s-title"><th colspan="' + cols + '">' + escapeHtml(config.schoolName || 'متابعة الطلاب') + '</th></tr>';
+  html += '<tr class="s-meta"><th colspan="' + cols + '">' + meta.join(' | ') + '</th></tr>';
+  html += '<tr class="s-subtitle"><th colspan="' + cols + '">' + escapeHtml(level) + ' - شعبة ' + escapeHtml(section) +
+    ' | التاريخ: ' + date +
+    ' | الحصة: ' + (period ? ('ح' + period) : '____________') +
+    (teacherLine ? ' | ' + teacherLine : '') +
+    '</th></tr>';
+  html += '<tr>';
   html += '<th width="4%">#</th><th width="24%">اسم الطالب</th><th width="13%">الرقم الوطني</th><th width="11%">الحضور</th><th width="8%">السلوك</th><th width="8%">الانضباط</th><th width="7%">الكتاب</th><th width="7%">الواجب</th><th width="18%">ملاحظات</th>';
   html += '</tr></thead><tbody>';
   list.forEach(function(s, i) {
@@ -3089,8 +3093,10 @@ function printSection(section) {
   var sk = sessKey(currentSessDate, currentPeriod, currentView, section);
   var sess = sessions[sk];
   var html = '<div id="printArea">';
-  html += '<div class="print-header">';
-  html += '<h2>' + (config.schoolName || 'متابعة الطلاب') + '</h2>';
+  html += '<table>';
+  html += '<thead>';
+  var cols = 9;
+  html += '<tr class="print-title"><th colspan="' + cols + '">' + (config.schoolName || 'متابعة الطلاب') + '</th></tr>';
   var meta = [];
   if (config.directorate) meta.push('المديرية: ' + config.directorate);
   if (config.teacherName) meta.push('المعلم: ' + config.teacherName);
@@ -3098,10 +3104,9 @@ function printSection(section) {
   if (config.semester) meta.push('الفصل: ' + config.semester);
   meta.push('التاريخ: ' + currentSessDate);
   meta.push('الحصة: ' + currentPeriod);
-  html += '<div class="print-meta">' + meta.join(' | ') + '</div>';
-  html += '<h3>' + currentView + ' - شعبة ' + section + '</h3>';
-  html += '</div>';
-  html += '<table><thead><tr>';
+  html += '<tr class="print-meta-row"><th colspan="' + cols + '">' + meta.join(' | ') + '</th></tr>';
+  html += '<tr class="print-subtitle"><th colspan="' + cols + '">' + currentView + ' - شعبة ' + section + '</th></tr>';
+  html += '<tr>';
   html += '<th width="4%">#</th><th width="26%">اسم الطالب</th><th width="14%">الرقم الوطني</th><th width="10%">الحضور</th><th width="8%">السلوك</th><th width="8%">الانضباط</th><th width="7%">الكتاب</th><th width="7%">الواجب</th><th width="16%">ملاحظات</th>';
   html += '</tr></thead><tbody>';
   current.forEach(function(s, i) {
