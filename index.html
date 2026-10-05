@@ -762,19 +762,19 @@ tr.absent:hover td { background: #fee2e2; }
             </th>
             <th style="width:90px">السلوك (1-5)</th>
             <th style="width:90px">الانضباط (1-5)</th>
-            <th style="width:60px">الكتاب
-              <select id="bulk-book" class="bulk-select" onchange="setAllField('book',this.value,'الكتاب')">
-                <option value="">تحديد الكل...</option>
-                <option value="yes">الجميع جابوا</option>
-                <option value="no">ما حدا جاب</option>
-              </select>
+            <th style="width:90px">الكتاب
+              <div style="font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px;">حضور الكل</div>
+              <div style="display:flex;gap:3px;justify-content:center;margin-top:4px;">
+                <button class="att-all present" onclick="setAllField('book','yes','الكتاب')" title="الجميع جابوا كتابهم">✓</button>
+                <button class="att-all absent" onclick="setAllField('book','no','الكتاب')" title="ما حدا جاب كتابه">✗</button>
+              </div>
             </th>
-            <th style="width:60px">الواجب
-              <select id="bulk-homework" class="bulk-select" onchange="setAllField('homework',this.value,'الواجب')">
-                <option value="">تحديد الكل...</option>
-                <option value="yes">الجميع عملوا</option>
-                <option value="no">ما حدا عمل</option>
-              </select>
+            <th style="width:90px">الواجب
+              <div style="font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px;">حضور الكل</div>
+              <div style="display:flex;gap:3px;justify-content:center;margin-top:4px;">
+                <button class="att-all present" onclick="setAllField('homework','yes','الواجب')" title="الجميع عملوا الواجب">✓</button>
+                <button class="att-all absent" onclick="setAllField('homework','no','الواجب')" title="ما حدا عمل الواجب">✗</button>
+              </div>
             </th>
             <th style="width:100px">ملاحظات</th>
             <th style="width:60px">إجراءات</th>
@@ -2301,15 +2301,6 @@ function updateScore(id, field, el) {
   }
   updateLiveRec(id, field, v);
 }
-function yesNoSelect(id, fn, val, okText, noText) {
-  var cls = val === 'yes' ? ' att-select full' : (val === 'no' ? ' att-select missing' : ' att-select');
-  return '<select class="' + cls.trim() + '" onchange="' + fn + '(' + id + ',this.value)" onfocus="this.select()">' +
-    '<option value=""' + (val === 'yes' || val === 'no' ? '' : ' selected') + '>—</option>' +
-    '<option value="yes"' + (val === 'yes' ? ' selected' : '') + '>' + okText + '</option>' +
-    '<option value="no"' + (val === 'no' ? ' selected' : '') + '>' + noText + '</option>' +
-    '</select>';
-}
-
 function absenceCountMonth(s) {
   if (!sessions || !s) return 0;
   var prefix = (currentSessDate && currentSessDate.length >= 7) ? currentSessDate.slice(0, 7) : todayStr().slice(0, 7);
@@ -2474,8 +2465,14 @@ function renderTable() {
         '</div></td>' +
         '<td>' + (isAbsent ? '<input class="grade-input" type="number" disabled placeholder="—" style="width:50px;background:#f1f5f9;color:#cbd5e1;cursor:not-allowed;">' : '<input class="grade-input" type="number" min="1" max="5" value="' + (rec.behavior || '') + '" oninput="updateScore(' + s.id + ',\'behavior\',this)" onfocus="this.select()" style="width:50px">') + '</td>' +
         '<td>' + (isAbsent ? '<input class="grade-input" type="number" disabled placeholder="—" style="width:50px;background:#f1f5f9;color:#cbd5e1;cursor:not-allowed;">' : '<input class="grade-input" type="number" min="1" max="5" value="' + (rec.discipline || '') + '" oninput="updateScore(' + s.id + ',\'discipline\',this)" onfocus="this.select()" style="width:50px">') + '</td>' +
-        '<td>' + (isAbsent ? '<span style="color:#cbd5e1;font-size:18px;">—</span>' : yesNoSelect(s.id, 'setBook', rec.book, 'كامل', 'ناقص')) + '</td>' +
-        '<td>' + (isAbsent ? '<span style="color:#cbd5e1;font-size:18px;">—</span>' : yesNoSelect(s.id, 'setHomework', rec.homework, 'واجب كامل', 'بدون واجب')) + '</td>' +
+        '<td>' + (isAbsent ? '<span style="color:#cbd5e1;font-size:18px;">—</span>' : '<div class="attendance-btns">' +
+          '<button class="att-btn present' + (rec.book === 'yes' ? '' : ' muted') + '" onclick="setBook(' + s.id + ',\'yes\')" title="جيب الكتاب">✓</button>' +
+          '<button class="att-btn absent' + (rec.book === 'no' ? '' : ' muted') + '" onclick="setBook(' + s.id + ',\'no\')" title="ما جاب الكتاب">✗</button>' +
+        '</div>') + '</td>' +
+        '<td>' + (isAbsent ? '<span style="color:#cbd5e1;font-size:18px;">—</span>' : '<div class="attendance-btns">' +
+          '<button class="att-btn present' + (rec.homework === 'yes' ? '' : ' muted') + '" onclick="setHomework(' + s.id + ',\'yes\')" title="عمل الواجب">✓</button>' +
+          '<button class="att-btn absent' + (rec.homework === 'no' ? '' : ' muted') + '" onclick="setHomework(' + s.id + ',\'no\')" title="ما عمل الواجب">✗</button>' +
+        '</div>') + '</td>' +
         '<td><input class="notes-input" value="' + (rec.notes || '') + '" oninput="updateLiveRec(' + s.id + ',\'notes\',this.value)" onfocus="this.select()" placeholder="..." maxlength="50"></td>' +
         '<td><div class="action-btns"><button class="btn btn-sm" style="background:#e2e8f0;color:#475569" onclick="showMoveModal(' + s.id + ')" title="نقل">🚚</button><button class="btn btn-danger btn-sm" onclick="deleteStudent(' + s.id + ')">✕</button></div></td>' +
       '</tr>';
