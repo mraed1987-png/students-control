@@ -736,6 +736,8 @@ tr.absent:hover td { background: #fee2e2; }
         </select>
         <button class="btn btn-sm" style="background:#6366f1;color:white;padding:6px 14px;font-size:12px" onclick="printSection(currentSection)">🖨️ طباعة الشعبة</button>
         <button class="btn btn-sm" style="background:#0ea5e9;color:white;padding:6px 14px;font-size:12px" onclick="showPaperPrintModal()">🗒️ كشف ورقي</button>
+        <button class="btn btn-sm" style="background:#f59e0b;color:white;padding:6px 14px;font-size:12px" onclick="clearCurrentSession()">🧹 مسح بيانات الجلسة</button>
+        <button class="btn btn-sm" style="background:#dc2626;color:white;padding:6px 14px;font-size:12px" onclick="deleteSessionByKey()">🗑️ حذف الجلسة المختارة</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;">
         <div class="search-box">
@@ -2225,17 +2227,20 @@ function updateField(id, field, value) {
     return;
   }
   var rec = getSessRec(id);
+  if (rec.attendance === 'absent' && ['behavior','discipline','book','homework'].indexOf(field) !== -1) return;
   rec[field] = value;
 }
 
 function setAttendance(id, status) {
   var rec = getSessRec(id);
   rec.attendance = status;
+  if (status === 'absent') { rec.behavior = ''; rec.discipline = ''; rec.book = ''; rec.homework = ''; }
   debouncedPersist('sessions');
   renderTable();
 }
 
 function setBook(id, val) {
+  if (isStudentAbsent(id)) return;
   var rec = getSessRec(id);
   rec.book = rec.book === val ? '' : val;
   debouncedPersist('sessions');
@@ -2243,6 +2248,7 @@ function setBook(id, val) {
 }
 
 function setHomework(id, val) {
+  if (isStudentAbsent(id)) return;
   var rec = getSessRec(id);
   rec.homework = rec.homework === val ? '' : val;
   debouncedPersist('sessions');
@@ -2272,11 +2278,17 @@ function liveNationalId(id, value) {
   debouncedPersist('students');
 }
 
+function isStudentAbsent(id) {
+  var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
+  var rec = sessions[sk] && sessions[sk].records && sessions[sk].records[id];
+  return !!(rec && rec.attendance === 'absent');
+}
 function updateLiveRec(id, field, value) {
   updateField(id, field, value);
   debouncedPersist('sessions');
 }
 function updateScore(id, field, el) {
+  if (isStudentAbsent(id)) { el.value = ''; return; }
   var v = (el.value || '').trim();
   if (v !== '') {
     var n = parseInt(v, 10);
@@ -2321,6 +2333,7 @@ function setAllField(field, val, label) {
   if (!list.length) { showToast('لا يوجد طلاب في هذه الشعبة', 'error'); return; }
   list.forEach(function(s) {
     var rec = sessions[sk].records[s.id] || (sessions[sk].records[s.id] = {});
+    if (rec.attendance === 'absent') return;
     rec[field] = val;
   });
   saveSessions();
@@ -2338,6 +2351,7 @@ function setAllAttendance(status) {
   list.forEach(function(s) {
     var rec = sessions[sk].records[s.id] || (sessions[sk].records[s.id] = {});
     rec.attendance = status;
+    if (status === 'absent') { rec.behavior = ''; rec.discipline = ''; rec.book = ''; rec.homework = ''; }
   });
   saveSessions();
   renderTable();
@@ -2366,6 +2380,33 @@ function loadSession(key) {
   document.getElementById('sessPeriod').value = currentPeriod;
   document.getElementById('sessLoad').value = key;
   renderTable();
+}
+
+function clearCurrentSession() {
+  var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
+  if (!sessions[sk] || !Object.keys(sessions[sk].records || {}).length) {
+    showToast('لا توجد بيانات محفوظة في هذه الجلسة', 'error');
+    return;
+  }
+  if (!confirm('سيتم مسح كل بيانات الجلسة الحالية:\nالتاريخ: ' + currentSessDate + '\nالحصة: ' + currentPeriod + '\n' + currentView + ' - شعبة ' + currentSection + '\n\nهل تريد المتابعة؟')) return;
+  delete sessions[sk];
+  saveSessions();
+  populateSessLoad();
+  renderTable();
+  showToast('تم مسح بيانات الجلسة');
+}
+
+function deleteSessionByKey() {
+  var sel = document.getElementById('sessLoad');
+  var key = sel && sel.value;
+  if (!key) { showToast('اختر الجلسة المحفوظة من قائمة "تحميل جلسة" أولاً', 'error'); return; }
+  var p = key.split('_');
+  if (!confirm('سيتم حذف الجلسة المحفوظة نهائياً:\n' + p[0] + ' - الحصة ' + p[1] + '\n' + p[2] + ' - شعبة ' + p[3] + '\n\nهل تريد المتابعة؟')) return;
+  delete sessions[key];
+  saveSessions();
+  populateSessLoad();
+  renderTable();
+  showToast('تم حذف الجلسة');
 }
 
 function populateSessLoad() {
@@ -2419,6 +2460,7 @@ function renderTable() {
       var absBadge = '';
       if (absCount > ABSENCE_WARN) absBadge = '<span class="abs-badge danger" title="غياب متكرر هذا الشهر: ' + absCount + ' حصص">غياب ' + absCount + '</span>';
       else if (absCount === ABSENCE_WARN) absBadge = '<span class="abs-badge warn" title="' + absCount + ' غيابات هذا الشهر - يجب المتابعة">غياب ' + absCount + '</span>';
+      var isAbsent = att === 'absent';
       return '<tr ' + rowClass + '>' +
         '<td>' + (i + 1) + '</td>' +
         '<td style="text-align:right"><div style="display:flex;align-items:center;justify-content:flex-start;gap:4px;">' +
@@ -2430,10 +2472,10 @@ function renderTable() {
           '<button class="att-btn absent' + (att === 'absent' ? '' : ' muted') + '" onclick="setAttendance(' + s.id + ',\'absent\')" title="غائب">✗</button>' +
           '<button class="att-btn late' + (att === 'late' ? '' : ' muted') + '" onclick="setAttendance(' + s.id + ',\'late\')" title="متأخر">◷</button>' +
         '</div></td>' +
-        '<td><input class="grade-input" type="number" min="1" max="5" value="' + (rec.behavior || '') + '" oninput="updateScore(' + s.id + ',\'behavior\',this)" onfocus="this.select()" style="width:50px"></td>' +
-        '<td><input class="grade-input" type="number" min="1" max="5" value="' + (rec.discipline || '') + '" oninput="updateScore(' + s.id + ',\'discipline\',this)" onfocus="this.select()" style="width:50px"></td>' +
-        '<td>' + yesNoSelect(s.id, 'setBook', rec.book, 'كامل', 'ناقص') + '</td>' +
-        '<td>' + yesNoSelect(s.id, 'setHomework', rec.homework, 'واجب كامل', 'بدون واجب') + '</td>' +
+        '<td>' + (isAbsent ? '<input class="grade-input" type="number" disabled placeholder="—" style="width:50px;background:#f1f5f9;color:#cbd5e1;cursor:not-allowed;">' : '<input class="grade-input" type="number" min="1" max="5" value="' + (rec.behavior || '') + '" oninput="updateScore(' + s.id + ',\'behavior\',this)" onfocus="this.select()" style="width:50px">') + '</td>' +
+        '<td>' + (isAbsent ? '<input class="grade-input" type="number" disabled placeholder="—" style="width:50px;background:#f1f5f9;color:#cbd5e1;cursor:not-allowed;">' : '<input class="grade-input" type="number" min="1" max="5" value="' + (rec.discipline || '') + '" oninput="updateScore(' + s.id + ',\'discipline\',this)" onfocus="this.select()" style="width:50px">') + '</td>' +
+        '<td>' + (isAbsent ? '<span style="color:#cbd5e1;font-size:18px;">—</span>' : yesNoSelect(s.id, 'setBook', rec.book, 'كامل', 'ناقص')) + '</td>' +
+        '<td>' + (isAbsent ? '<span style="color:#cbd5e1;font-size:18px;">—</span>' : yesNoSelect(s.id, 'setHomework', rec.homework, 'واجب كامل', 'بدون واجب')) + '</td>' +
         '<td><input class="notes-input" value="' + (rec.notes || '') + '" oninput="updateLiveRec(' + s.id + ',\'notes\',this.value)" onfocus="this.select()" placeholder="..." maxlength="50"></td>' +
         '<td><div class="action-btns"><button class="btn btn-sm" style="background:#e2e8f0;color:#475569" onclick="showMoveModal(' + s.id + ')" title="نقل">🚚</button><button class="btn btn-danger btn-sm" onclick="deleteStudent(' + s.id + ')">✕</button></div></td>' +
       '</tr>';
