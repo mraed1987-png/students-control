@@ -641,6 +641,9 @@ tr.absent:hover td { background: #fee2e2; }
 .reports-filters select, .reports-filters .form-group select { padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-family: inherit; background: white; }
 .reports-grid { display: flex; flex-direction: column; gap: 20px; }
 .report-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; overflow-x: auto; }
+.charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.chart-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; }
+.chart-card > div.title { font-weight: 700; color: #1e3a5f; margin-bottom: 10px; font-size: 13px; }
 .report-card h3 { font-size: 16px; color: #1e3a5f; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
 .report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .report-table th { background: #f8fafc; color: #475569; font-weight: 700; padding: 10px 8px; text-align: center; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
@@ -1645,10 +1648,12 @@ function formatSlotShort(slot) {
 }
 document.addEventListener('change', function(e) {
   if (e.target.id === 'newStudentLevel') updateSectionSelect();
-  if (e.target.id === 'rptLevel') { populateRptSections(); renderReportsData(); }
+  if (e.target.id === 'rptLevel') { populateRptSections(); populateRptStudents(); renderReportsData(); }
 });
 
 // --- Reports ---
+
+var rptSel = { level: '', section: '', student: '' };
 
 function switchToReports() {
   currentView = 'reports';
@@ -1673,7 +1678,9 @@ function renderReports() {
   html += '<div class="reports-grid" id="reportsData"></div>';
   document.getElementById('reportsView').innerHTML = html;
   if (levels.length) {
-    if (getLevels().indexOf(currentView) > -1) document.getElementById('rptLevel').value = currentView;
+    var lvlEl = document.getElementById('rptLevel');
+    if (rptSel.level && getLevels().indexOf(rptSel.level) > -1) lvlEl.value = rptSel.level;
+    else if (!lvlEl.value) lvlEl.value = levels[0];
     populateRptSections();
     populateRptStudents();
     renderReportsData();
@@ -1683,17 +1690,20 @@ function renderReports() {
 function populateRptSections() {
   var level = document.getElementById('rptLevel').value;
   if (!level) return;
+  rptSel.level = level;
   var secs = getSections(level);
   var sel = document.getElementById('rptSection');
   sel.innerHTML = secs.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+  if (rptSel.section && secs.indexOf(rptSel.section) > -1) sel.value = rptSel.section;
 }
 
 function populateRptStudents() {
   var level = document.getElementById('rptLevel').value;
   var section = document.getElementById('rptSection').value;
-  var list = students.filter(function(s) { return s.level === level && s.section === section; });
+  var list = students.filter(function(s) { return String(s.level) === String(level) && String(s.section) === String(section); });
   var sel = document.getElementById('rptStudent');
   sel.innerHTML = '<option value="">👥 جميع الطلاب</option>' + list.map(function(s) { return '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>'; }).join('');
+  if (rptSel.student && list.some(function(st) { return String(st.id) === String(rptSel.student); })) sel.value = String(rptSel.student);
 }
 
 function renderReportsData() {
@@ -1701,6 +1711,7 @@ function renderReportsData() {
   var section = document.getElementById('rptSection').value;
   var studentId = document.getElementById('rptStudent').value;
   if (!level || !section) return;
+  rptSel.level = level; rptSel.section = section; rptSel.student = studentId;
   var container = document.getElementById('reportsData');
 
   var sessionKeys = Object.keys(sessions).filter(function(k) {
@@ -1710,17 +1721,89 @@ function renderReportsData() {
   var totalSess = sessionKeys.length;
 
   if (studentId) {
-    renderSingleStudentReport(parseInt(studentId), level, section, sessionKeys, container);
+    renderSingleStudentReport(parseInt(studentId), level, section, sessionKeys, totalSess, container);
   } else {
     renderAllStudentsReport(level, section, sessionKeys, container);
   }
 }
 
-function renderSingleStudentReport(studentId, level, section, sessionKeys, container) {
-  var s = students.find(function(st) { return st.id === studentId; });
+function donutChart(parts, size) {
+  size = size || 150;
+  var r = size / 2 - 8;
+  var C = 2 * Math.PI * r;
+  var total = 0;
+  parts.forEach(function(p) { total += p.value; });
+  if (!total) return '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:18px 0;">لا توجد بيانات</div>';
+  var cx = size / 2, cy = size / 2;
+  var acc = 0, segs = '';
+  parts.forEach(function(p) {
+    if (!p.value) return;
+    var len = (p.value / total) * C;
+    segs += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r - 8) + '" fill="none" stroke="' + p.color + '" stroke-width="22" stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len + 1).toFixed(2) + '" stroke-dashoffset="' + (-acc).toFixed(2) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>';
+    acc += len;
+  });
+  var main = Math.round((parts[0].value / total) * 100);
+  var inner = '<text x="' + cx + '" y="' + (cy - 3) + '" text-anchor="middle" font-size="26" font-weight="700" fill="#1e3a5f">' + main + '%</text>' +
+    '<text x="' + cx + '" y="' + (cy + 15) + '" text-anchor="middle" font-size="10" fill="#94a3b8">حضور</text>';
+  return '<svg viewBox="0 0 ' + size + ' ' + size + '" style="width:' + size + 'px;height:' + size + 'px;display:block">' + segs + inner + '</svg>';
+}
+
+function chartLegend(items) {
+  var h = '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:#475569;white-space:nowrap;">';
+  items.forEach(function(it) {
+    h += '<span><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:' + it.color + ';margin-left:6px;vertical-align:middle;"></i>' + it.label + ': <b style="color:#1e3a5f;">' + it.value + '</b></span>';
+  });
+  return h + '</div>';
+}
+
+function groupedBarChart(labels, series, maxV) {
+  var w = 520, h = 200, padT = 16, padR = 10, padB = 30, padL = 10;
+  var plotW = w - padL - padR, plotH = h - padT - padB;
+  var n = labels.length;
+  if (!n) return '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:18px 0;">لا توجد بيانات</div>';
+  var slot = plotW / n;
+  var count = series.length;
+  var barW = Math.max(4, Math.min(16, (slot * 0.6) / count));
+  var html = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;max-width:' + w + 'px;display:block">';
+  for (var t = 0; t <= maxV; t++) {
+    var y = padT + plotH - (plotH * t / maxV);
+    html += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (w - padR) + '" y2="' + y.toFixed(1) + '" stroke="#f1f5f9" stroke-width="1"></line>';
+    html += '<text x="' + (w - padR) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="#94a3b8">' + t + '</text>';
+  }
+  labels.forEach(function(lb, i) {
+    var cx = padL + slot * i + slot / 2;
+    var startX = cx - (count * barW) / 2;
+    series.forEach(function(se, j) {
+      var v = Math.max(0, Math.min(se.values[i], maxV));
+      var bh = plotH * v / maxV;
+      var x = startX + j * barW;
+      var y = padT + plotH - bh;
+      html += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(1, barW - 2).toFixed(1) + '" height="' + (bh || 1).toFixed(1) + '" rx="2" fill="' + se.color + '"></rect>';
+    });
+    html += '<text x="' + cx.toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="9.5" fill="#64748b">' + escapeHtml(lb) + '</text>';
+  });
+  html += '</svg>';
+  html += '<div style="display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:11px;color:#64748b;flex-wrap:wrap;">';
+  series.forEach(function(se) {
+    html += '<span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:' + se.color + ';margin-left:5px;vertical-align:middle;"></i>' + se.name + '</span>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function hBarPct(pct, color) {
+  pct = Math.max(0, Math.min(100, pct));
+  return '<div style="display:flex;align-items:center;gap:10px;font-size:12px;">' +
+    '<div style="flex:1;background:#e2e8f0;border-radius:8px;height:14px;overflow:hidden;">' +
+    '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:8px;"></div></div>' +
+    '<b style="min-width:42px;color:#1e3a5f;text-align:center;">' + pct + '%</b></div>';
+}
+
+function renderSingleStudentReport(studentId, level, section, sessionKeys, totalSess, container) {
+  var s = students.find(function(st) { return String(st.id) === String(studentId); });
   if (!s) { container.innerHTML = '<p style="color:#94a3b8;padding:20px;">الطالب غير موجود</p>'; return; }
   if (!sessionKeys.length) {
-    container.innerHTML = '<div class="report-card"><h3>👤 ' + escapeHtml(s.name) + '</h3><p style="color:#94a3b8;font-size:13px;">لا توجد جلسات محفوظة</p></div>';
+    container.innerHTML = '<div class="report-card"><h3>👤 ' + escapeHtml(s.name) + '</h3><p style="color:#94a3b8;font-size:13px;">لا توجد جلسات محفوظة لهذا الطالب</p></div>';
     return;
   }
 
@@ -1728,6 +1811,7 @@ function renderSingleStudentReport(studentId, level, section, sessionKeys, conta
   var present = 0, absent = 0, late = 0;
   var behTotal = 0, behCount = 0, disTotal = 0, disCount = 0;
   var bookYes = 0, bookNo = 0, hwYes = 0, hwNo = 0;
+  var behSeries = [], disSeries = [], dateLabels = [];
   var sessionsDetail = [];
 
   sessionKeys.forEach(function(k) {
@@ -1737,22 +1821,30 @@ function renderSingleStudentReport(studentId, level, section, sessionKeys, conta
     if (att === 'present') present++;
     else if (att === 'absent') absent++;
     else late++;
-    if (rec.behavior) { behTotal += parseInt(rec.behavior); behCount++; }
-    if (rec.discipline) { disTotal += parseInt(rec.discipline); disCount++; }
+    if (rec.behavior) behTotal += parseInt(rec.behavior);
+    if (rec.behavior && rec.attendance !== 'absent') behCount++;
+    if (rec.discipline) disTotal += parseInt(rec.discipline);
+    if (rec.discipline && rec.attendance !== 'absent') disCount++;
     if (rec.book === 'yes') bookYes++;
     else if (rec.book === 'no') bookNo++;
     if (rec.homework === 'yes') hwYes++;
     else if (rec.homework === 'no') hwNo++;
     sessionsDetail.push({ date: p[0], period: p[1], rec: rec });
+    var used = !!(rec.behavior || rec.discipline);
+    if (used) {
+      dateLabels.push((p[0].slice(8, 10)) + '/' + p[0].slice(5, 7));
+      behSeries.push(rec.behavior ? parseInt(rec.behavior) : 0);
+      disSeries.push(rec.discipline ? parseInt(rec.discipline) : 0);
+    }
   });
 
   var total = present + absent + late;
   var attPct = total ? ((present / total) * 100).toFixed(1) : '100.0';
   var behAvg = behCount ? (behTotal / behCount).toFixed(1) : '—';
   var disAvg = disCount ? (disTotal / disCount).toFixed(1) : '—';
-  var bookPct = (bookYes + bookNo) ? ((bookYes / (bookYes + bookNo)) * 100).toFixed(0) : '—';
-  var hwPct = (hwYes + hwNo) ? ((hwYes / (hwYes + hwNo)) * 100).toFixed(0) : '—';
-  var attColor = attPct >= 90 ? '#10b981' : attPct >= 75 ? '#f59e0b' : '#ef4444';
+  var bookPct = (bookYes + bookNo) ? Math.round((bookYes / (bookYes + bookNo)) * 100) : null;
+  var hwPct = (hwYes + hwNo) ? Math.round((hwYes / (hwYes + hwNo)) * 100) : null;
+  var attColor = parseFloat(attPct) >= 90 ? '#10b981' : parseFloat(attPct) >= 75 ? '#f59e0b' : '#ef4444';
 
   var html = '<div class="report-card">';
   html += '<h3>👤 ' + escapeHtml(s.name) + (s.nationalId ? ' <span style="font-size:12px;color:#94a3b8;font-weight:400;">(' + escapeHtml(s.nationalId) + ')</span>' : '') + '</h3>';
@@ -1762,12 +1854,28 @@ function renderSingleStudentReport(studentId, level, section, sessionKeys, conta
   html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:' + attColor + ';">' + attPct + '%</div><div style="font-size:11px;color:#64748b;">حضور</div></div>';
   html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">' + (behAvg !== '—' ? behAvg : '—') + ' / 5</div><div style="font-size:11px;color:#64748b;">سلوك</div></div>';
   html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">' + (disAvg !== '—' ? disAvg : '—') + ' / 5</div><div style="font-size:11px;color:#64748b;">انضباط</div></div>';
-  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#10b981;">' + bookPct + '%</div><div style="font-size:11px;color:#64748b;">الكتاب</div></div>';
-  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#10b981;">' + hwPct + '%</div><div style="font-size:11px;color:#64748b;">الواجب</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#10b981;">' + (bookPct !== null ? bookPct + '%' : '—') + '</div><div style="font-size:11px;color:#64748b;">الكتاب</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:100px;"><div style="font-size:22px;font-weight:700;color:#10b981;">' + (hwPct !== null ? hwPct + '%' : '—') + '</div><div style="font-size:11px;color:#64748b;">الواجب</div></div>';
+  html += '</div>';
+
+  // Charts
+  html += '<div class="charts-grid">';
+  html += '<div class="chart-card"><div class="title">📅 الحضور</div>' +
+    '<div style="display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;">' +
+    donutChart([{ label: 'حاضر', value: present, color: '#10b981' }, { label: 'متأخر', value: late, color: '#f59e0b' }, { label: 'غائب', value: absent, color: '#ef4444' }]) +
+    chartLegend([{ label: 'حاضر', value: present, color: '#10b981' }, { label: 'متأخر', value: late, color: '#f59e0b' }, { label: 'غائب', value: absent, color: '#ef4444' }]) +
+    '</div></div>';
+  html += '<div class="chart-card"><div class="title">⭐ السلوك والانضباط (لكل جلسة)</div>' +
+    groupedBarChart(dateLabels, [{ name: 'سلوك', values: behSeries, color: '#3b82f6' }, { name: 'انضباط', values: disSeries, color: '#8b5cf6' }], 5) +
+    '</div>';
+  html += '<div class="chart-card"><div class="title">📚 الكتاب والواجب</div>' +
+    '<div style="display:flex;flex-direction:column;gap:14px;padding:6px 0;">' +
+    (bookPct !== null ? '<div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">الكتاب (✓ ' + bookYes + ' / ✗ ' + bookNo + ')</div>' + hBarPct(bookPct, '#10b981') + '</div>' : '<div style="color:#94a3b8;font-size:12px;">لا توجد بيانات الكتاب</div>') +
+    (hwPct !== null ? '<div><div style="font-size:11px;color:#64748b;margin-bottom:4px;">الواجب (✓ ' + hwYes + ' / ✗ ' + hwNo + ')</div>' + hBarPct(hwPct, '#0ea5e9') + '</div>' : '<div style="color:#94a3b8;font-size:12px;">لا توجد بيانات الواجب</div>') +
+    '</div></div>';
   html += '</div>';
 
   // Detailed breakdown
-  html += '<div style="font-size:13px;color:#64748b;margin-bottom:8px;">تفاصيل الجلسات (' + totalSess + '):</div>';
   html += '<table class="report-table"><thead><tr><th>التاريخ</th><th>الحصة</th><th>الحضور</th><th>السلوك</th><th>الانضباط</th><th>الكتاب</th><th>الواجب</th><th>ملاحظات</th></tr></thead><tbody>';
   sessionsDetail.forEach(function(sd) {
     var r = sd.rec;
