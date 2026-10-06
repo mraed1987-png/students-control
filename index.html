@@ -3549,14 +3549,17 @@ function cloudPush() {
     }).catch(function(err) { reject(err); });
   });
 }
+var _lastPullOk = false;
 function cloudPull(withRender) {
   return new Promise(function(resolve) {
+    _lastPullOk = false;
     if (!syncConf.token) { resolve(false); return; }
     function parseAndMerge(text) {
       var remote;
       try { remote = JSON.parse(text); } catch(e) { resolve(false); return; }
-      if (!remote || !remote.sessions || !remote.students) { resolve(false); return; }
+      if (!remote || !remote.sessions || !remote.students) { _lastPullOk = true; resolve(false); return; }
       var changed = mergeAll(remote);
+      _lastPullOk = true;
       if (changed) {
         saveAllLocal();
         if (withRender) renderAll();
@@ -3564,17 +3567,17 @@ function cloudPull(withRender) {
       resolve(changed);
     }
     function doPull(gid) {
-      if (!gid) { resolve(false); return; }
+      if (!gid) { _lastPullOk = true; resolve(false); return; }
       fetch(GIST_API + '/' + gid, { headers: gistHeaders() })
         .then(function(r) {
-          if (r.status === 404) { resolve(false); return null; }
+          if (r.status === 404) { _lastPullOk = true; resolve(false); return null; }
           if (r.status >= 400) { resolve(false); return null; }
           return r.json();
         })
         .then(function(g) {
           if (!g) return;
           var file = g.files && g.files[GIST_FILE];
-          if (!file) { resolve(false); return; }
+          if (!file) { _lastPullOk = true; resolve(false); return; }
           if (file.content !== undefined && file.content !== '') { parseAndMerge(file.content); }
           else if (file.raw_url) {
             fetch(file.raw_url, { headers: gistHeaders() })
@@ -3626,9 +3629,19 @@ function syncTest() {
 function cloudSyncNow() {
   if (!syncConf.token) { showToast('أدخل الـ GitHub Token أولاً', 'error'); return; }
   updateSyncStatus('جارِ المزامنة...');
+  var aborted = false;
   cloudPull(true)
-    .then(function() { return cloudPush(); })
     .then(function() {
+      if (!_lastPullOk) {
+        aborted = true;
+        updateSyncStatus('تعذر قراءة النسخة السحابية — أعد المحاولة لاحقًا (لم يتم الرفع حفاظًا على بياناتك)');
+        showToast('⚠️ تعذرت القراءة — لم يُرفع', 'error');
+        return;
+      }
+      return cloudPush();
+    })
+    .then(function() {
+      if (aborted) return;
       updateSyncStatus('آخر مزامنة ناجحة: ' + new Date().toLocaleString('ar-SY'));
       showToast('✅ تمت المزامنة');
       renderAll();
@@ -3651,7 +3664,15 @@ function scheduleAutoPush() {
   var delay = Math.max(3000, 90000 - elapsed);
   _autoPushTimer = setTimeout(function() {
     _lastAutoPushAt = Date.now();
-    cloudPush().catch(function() {});
+    var ae = document.activeElement;
+    var editing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT');
+    cloudPull(!editing)
+      .catch(function() {})
+      .then(function(changed) {
+        if (!editing && changed) showToast('🔄 تحديث البيانات من الأجهزة الأخرى');
+        if (!_lastPullOk) return;
+        return cloudPush().catch(function() {});
+      });
   }, delay);
 }
 function autoPullOnLoad() {
