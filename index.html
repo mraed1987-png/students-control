@@ -3488,31 +3488,24 @@ function findBestGist() {
       if (!Array.isArray(list)) return null;
       var candidates = list.filter(function(g) { return g.files && g.files[GIST_FILE]; });
       if (!candidates.length) return null;
-      return Promise.all(candidates.map(function(c) {
-        return fetch(GIST_API + '/' + c.id, { headers: gistHeaders() })
-          .then(function(r) { return r.json(); })
-          .then(function(gd) {
-            var content = (gd.files && gd.files[GIST_FILE] && gd.files[GIST_FILE].content) || '';
-            var score = 0;
-            try {
-              var rem = JSON.parse(content);
-              if (rem) score = (Array.isArray(rem.students) ? rem.students.length : 0) + (rem.sessions ? Object.keys(rem.sessions).length : 0);
-            } catch(e) { score = 0; }
-            return { id: gd.id, updated: gd.updated_at || '', score: score };
-          })
-          .catch(function() { return null; });
-      })).then(function(infos) {
-        var valid = infos.filter(function(x) { return x && x.id; });
-        if (!valid.length) return null;
-        valid.sort(function(a, b) {
-          if (a.score !== b.score) return b.score - a.score;
-          return (b.updated < a.updated ? -1 : 1);
-        });
-        return valid[0].id;
+      candidates.sort(function(a, b) {
+        var sa = (a.files[GIST_FILE] && a.files[GIST_FILE].size) || 0;
+        var sb = (b.files[GIST_FILE] && b.files[GIST_FILE].size) || 0;
+        if (sa !== sb) return sb - sa;
+        return ((b.updated_at || '') < (a.updated_at || '')) ? -1 : 1;
       });
+      return candidates[0].id;
     })
     .catch(function() { return null; });
 }
+function rateLimitMsg(resetTs) {
+  if (!resetTs) return 'استخدمت حد الطلبات المجانية من GitHub لساعة. انتظر حتى إعادة الضبط ثم أعد المحاولة.';
+  var d = new Date(Number(resetTs) * 1000);
+  var hh = ('0' + d.getHours()).slice(-2);
+  var mm = ('0' + d.getMinutes()).slice(-2);
+  return 'استخدمت حد الطلبات المجانية من GitHub حتى الساعة ' + hh + ':' + mm + ' بتوقيت جهازك. انتظر حتى ذلك الوقت ثم أعد المحاولة.';
+}
+function isRateLimited(status) { return status === 403 || status === 429; }
 function ensureGistId() {
   if (syncConf.gistId) return Promise.resolve(syncConf.gistId);
   return findBestGist().then(function(gid) {
@@ -3532,10 +3525,16 @@ function cloudPush() {
       else payload.public = false;
       fetch(url, { method: method, headers: gistHeaders(), body: JSON.stringify(payload) })
         .then(function(r) {
-          return r.json().then(function(j) { return { status: r.status, json: j }; });
+          return r.json().then(function(j) {
+            return { status: r.status, json: j, reset: r.headers.get('x-ratelimit-reset') };
+          });
         })
         .then(function(res) {
           if (res.status >= 400) {
+            if (isRateLimited(res.status) && /rate limit/i.test((res.json && res.json.message) || '')) {
+              reject(new Error(rateLimitMsg(res.reset)));
+              return;
+            }
             var msg = (res.json && res.json.message) || ('HTTP ' + res.status);
             if (res.status === 404) { syncConf.gistId = ''; saveSyncConf(); }
             reject(new Error(msg));
@@ -3599,8 +3598,14 @@ function syncTest() {
   if (!syncConf.token) { showToast('أدخل الـ GitHub Token أولاً', 'error'); return; }
   updateSyncStatus('جارِ فحص الاتصال...');
   fetch('https://api.github.com/user', { headers: gistHeaders() })
-    .then(function(r) { return r.json(); })
-    .then(function(j) {
+    .then(function(r) { return r.json().then(function(j) { return { status: r.status, json: j, reset: r.headers.get('x-ratelimit-reset') }; }); })
+    .then(function(res) {
+      var j = res.json || {};
+      if (isRateLimited(res.status) && /rate limit/i.test(j.message || '')) {
+        updateSyncStatus(rateLimitMsg(res.reset));
+        showToast('⚠️ تم الوصول لحد الطلبات المؤقت من GitHub', 'error');
+        return;
+      }
       if (j && j.login) {
         syncConf.enabled = true;
         saveSyncConf();
@@ -3638,15 +3643,22 @@ function updateSyncStatus(msg) {
   if (el) el.textContent = msg;
 }
 var _autoPushTimer = null;
+var _lastAutoPushAt = 0;
 function scheduleAutoPush() {
   if (!syncConf.token) return;
   if (_autoPushTimer) clearTimeout(_autoPushTimer);
+  var elapsed = Date.now() - _lastAutoPushAt;
+  var delay = Math.max(3000, 90000 - elapsed);
   _autoPushTimer = setTimeout(function() {
+    _lastAutoPushAt = Date.now();
     cloudPush().catch(function() {});
-  }, 3000);
+  }, delay);
 }
 function autoPullOnLoad() {
   if (!syncConf.token) return;
+  if (syncConf.lastPullAt && Date.now() - new Date(syncConf.lastPullAt).getTime() < 60000) return;
+  syncConf.lastPullAt = new Date().toISOString();
+  saveSyncConf();
   cloudPull(false).then(function(changed) {
     if (changed) { saveAllLocal(); renderAll(); }
   });
