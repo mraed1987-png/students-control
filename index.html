@@ -1057,6 +1057,16 @@ const GIST_FILE = 'students-control-data.json';
 const GIST_API = 'https://api.github.com/gists';
 let syncConf = { enabled: false, token: '', gistId: '', lastSyncAt: '' };
 let deletedIds = [];
+var dirtyStudentIds = {};
+var dirtySessions = {};
+var deletedSessionKeys = {};
+function markStudentDirty(id) {
+  if (id != null) dirtyStudentIds[id] = true;
+}
+function markSessionDirty() {
+  var k = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
+  if (k) dirtySessions[k] = true;
+}
 
 const DEFAULT_LEVELS = { 'التاسع': ['أ','ب','ج','د','هـ'], 'العاشر': ['أ','ب','ج','د','هـ'], 'الحادي عشر الأكاديمي': ['أ','ب','ج','د'] };
 const DAYS = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس'];
@@ -2251,6 +2261,7 @@ function moveStudent() {
   }
   s.level = newLevel;
   s.section = newSection;
+  markStudentDirty(s.id);
   saveData();
   closeModal('moveModal');
   if (currentView === 'all') {
@@ -2367,7 +2378,7 @@ function getSessRec(id) {
 function updateField(id, field, value) {
   if (field === 'name') {
     var s = students.find(function(st) { return st.id === id; });
-    if (s) { s.name = value; saveData(); }
+    if (s) { s.name = value; markStudentDirty(id); saveData(); }
     return;
   }
   if (field === 'nationalId') {
@@ -2379,18 +2390,21 @@ function updateField(id, field, value) {
       if (dup) { showToast('هذا الرقم الوطني مسجل لطالب آخر: ' + dup.name, 'error'); if (currentView === 'all') renderAllStudents(); else renderTable(); return; }
     }
     st.nationalId = value;
+    markStudentDirty(id);
     saveData();
     return;
   }
   var rec = getSessRec(id);
   if (rec.attendance === 'absent' && ['behavior','discipline','book','homework'].indexOf(field) !== -1) return;
   rec[field] = value;
+  markSessionDirty();
 }
 
 function setAttendance(id, status) {
   var rec = getSessRec(id);
   rec.attendance = status;
   if (status === 'absent') { rec.behavior = ''; rec.discipline = ''; rec.book = ''; rec.homework = ''; }
+  markSessionDirty();
   debouncedPersist('sessions');
   renderTable();
 }
@@ -2399,6 +2413,7 @@ function setBook(id, val) {
   if (isStudentAbsent(id)) return;
   var rec = getSessRec(id);
   rec.book = rec.book === val ? '' : val;
+  markSessionDirty();
   debouncedPersist('sessions');
   renderTable();
 }
@@ -2407,6 +2422,7 @@ function setHomework(id, val) {
   if (isStudentAbsent(id)) return;
   var rec = getSessRec(id);
   rec.homework = rec.homework === val ? '' : val;
+  markSessionDirty();
   debouncedPersist('sessions');
   renderTable();
 }
@@ -2423,7 +2439,7 @@ function debouncedPersist(which) {
 
 function updateLiveName(id, value) {
   var s = students.find(function(st) { return st.id === id; });
-  if (s) s.name = value;
+  if (s) { s.name = value; markStudentDirty(id); }
   debouncedPersist('students');
 }
 
@@ -2431,6 +2447,7 @@ function liveNationalId(id, value) {
   var st = students.find(function(s) { return s.id === id; });
   if (!st || st.nationalId === value) return;
   st.nationalId = value;
+  markStudentDirty(id);
   debouncedPersist('students');
 }
 
@@ -2483,6 +2500,7 @@ function setAllField(field, val, label) {
     if (rec.attendance === 'absent') return;
     rec[field] = val;
   });
+  markSessionDirty();
   saveSessions();
   renderTable();
   showToast(val === 'yes' ? label + ': تم تحديد "الجميع ' + (label === 'الكتاب' ? 'متجيب' : 'متعامل') + '"' : (val === 'no' ? label + ': تم تحديد "ما حدا ' + (label === 'الكتاب' ? 'جيب' : 'تعامل') + '"' : label + ': تم إلغاء التحديد للكل'));
@@ -2500,6 +2518,7 @@ function setAllAttendance(status) {
     rec.attendance = status;
     if (status === 'absent') { rec.behavior = ''; rec.discipline = ''; rec.book = ''; rec.homework = ''; }
   });
+  markSessionDirty();
   saveSessions();
   renderTable();
   showToast(status === 'present' ? 'تم تحديد جميع الطلاب حاضر' : 'تم تحديد جميع الطلاب غائب');
@@ -2537,6 +2556,7 @@ function clearCurrentSession() {
   }
   if (!confirm('سيتم مسح كل بيانات الجلسة الحالية:\nالتاريخ: ' + currentSessDate + '\nالحصة: ' + currentPeriod + '\n' + currentView + ' - شعبة ' + currentSection + '\n\nهل تريد المتابعة؟')) return;
   delete sessions[sk];
+  deletedSessionKeys[sk] = true;
   saveSessions();
   populateSessLoad();
   renderTable();
@@ -2550,6 +2570,7 @@ function deleteSessionByKey() {
   var p = key.split('_');
   if (!confirm('سيتم حذف الجلسة المحفوظة نهائياً:\n' + p[0] + ' - الحصة ' + p[1] + '\n' + p[2] + ' - شعبة ' + p[3] + '\n\nهل تريد المتابعة؟')) return;
   delete sessions[key];
+  deletedSessionKeys[key] = true;
   saveSessions();
   populateSessLoad();
   renderTable();
@@ -3543,9 +3564,14 @@ function mergeAll(remote) {
     remote.students.forEach(function(rs) {
       if (dead[rs.id]) return;
       if (localMap[rs.id]) {
-        if (JSON.stringify(localMap[rs.id]) !== JSON.stringify(rs)) changed = true;
-        final.push(rs);
-        delete localMap[rs.id];
+        if (dirtyStudentIds[rs.id]) {
+          final.push(localMap[rs.id]);
+          delete localMap[rs.id];
+        } else {
+          if (JSON.stringify(localMap[rs.id]) !== JSON.stringify(rs)) changed = true;
+          final.push(rs);
+          delete localMap[rs.id];
+        }
       } else {
         changed = true;
         final.push(rs);
@@ -3558,11 +3584,14 @@ function mergeAll(remote) {
   if (remote.sessions) {
     Object.keys(remote.sessions).forEach(function(k) {
       var rrecs = remote.sessions[k].records || {};
+      if (deletedSessionKeys[k]) { changed = true; delete sessions[k]; return; }
       if (!sessions[k]) { changed = true; sessions[k] = { records: {} }; }
       var lrecs = sessions[k].records = sessions[k].records || {};
       Object.keys(rrecs).forEach(function(sid) {
         if (dead[sid]) { changed = true; return; }
-        if (!lrecs[sid] || JSON.stringify(lrecs[sid]) !== JSON.stringify(rrecs[sid])) {
+        if (dirtySessions[k]) {
+          if (!lrecs[sid]) { changed = true; lrecs[sid] = rrecs[sid]; }
+        } else if (!lrecs[sid] || JSON.stringify(lrecs[sid]) !== JSON.stringify(rrecs[sid])) {
           changed = true;
           lrecs[sid] = rrecs[sid];
         }
@@ -3700,6 +3729,9 @@ function cloudPush() {
           syncConf.gistId = syncConf.gistId || res.json.id;
           syncConf.lastSyncAt = new Date().toISOString();
           saveSyncConf();
+          dirtyStudentIds = {};
+          dirtySessions = {};
+          deletedSessionKeys = {};
           resolve(true);
         })
         .catch(function(err) { reject(err); });
