@@ -2779,6 +2779,26 @@ function marksRec(sid) {
 }
 function markN(v) { var n = Number(v); return isNaN(n) ? 0 : n; }
 
+function studentMarksPct(s) {
+  var rec = {};
+  var key = marksKey(s.level, s.section);
+  if (marks[key] && marks[key][s.id]) rec = marks[key][s.id];
+  var m9 = markN(rec.p9) + markN(rec.w9);
+  var perf = markN(rec.perf);
+  var fin = markN(rec.finT) + markN(rec.finW);
+  var numerator = m9 + perf + fin;
+  var den = 0;
+  if ((rec.p9 !== undefined && rec.p9 !== '') || (rec.w9 !== undefined && rec.w9 !== '')) den += 30;
+  if (rec.perf !== undefined && rec.perf !== '') den += 30;
+  if ((rec.finT !== undefined && rec.finT !== '') || (rec.finW !== undefined && rec.finW !== '')) den += 40;
+  if (!den) return null;
+  return Math.round(numerator / den * 100);
+}
+function marksPctColor(p) {
+  if (p == null) return '#94a3b8';
+  return p >= 90 ? '#10b981' : p >= 75 ? '#f59e0b' : '#ef4444';
+}
+
 function renderMarks() {
   var levels = getLevels();
   if (!levels.length) { document.getElementById('marksView').innerHTML = '<div style="background:white;border-radius:12px;padding:30px;text-align:center;color:#94a3b8;">لا توجد صفوف بعد. أضفها من ⚙️ الإعدادات.</div>'; return; }
@@ -3080,12 +3100,14 @@ function renderLog() {
       '<th style="padding:9px 6px;">معدل الانضباط</th>' +
       '<th style="padding:9px 6px;">بلا كتاب</th>' +
       '<th style="padding:9px 6px;">بلا واجب</th>' +
+      '<th style="padding:9px 6px;">العلامة المجمعة %</th>' +
       '<th style="padding:9px 6px;">ملاحظات</th>' +
       '</tr></thead><tbody>';
     rows.forEach(function(x, i) {
       var a = x.agg;
       var beh = a.behN ? (a.behSum / a.behN).toFixed(1) : '—';
       var dis = a.disN ? (a.disSum / a.disN).toFixed(1) : '—';
+      var pct = studentMarksPct(x.s);
       html += '<tr' + (a.absent > ABSENCE_WARN ? ' style="border-bottom:1px solid #eef2f7;background:#fef2f2;"' : ' style="border-bottom:1px solid #eef2f7;"') + '>' +
         '<td style="padding:7px 6px;text-align:center;color:#94a3b8;">' + (i + 1) + '</td>' +
         '<td style="padding:7px 6px;text-align:right;">' + escapeHtml(x.s.name) + (x.s.nationalId ? ' <span style="color:#94a3b8;font-size:11px;direction:ltr;unicode-bidi:embed;">' + escapeHtml(String(x.s.nationalId)) + '</span>' : '') + '</td>' +
@@ -3098,6 +3120,7 @@ function renderLog() {
         '<td style="padding:7px 6px;text-align:center;">' + dis + '</td>' +
         '<td style="padding:7px 6px;text-align:center;">' + a.noBook + '</td>' +
         '<td style="padding:7px 6px;text-align:center;">' + a.noHw + '</td>' +
+        '<td style="padding:7px 6px;text-align:center;font-weight:700;color:' + marksPctColor(pct) + ';background:#f0fdf4;">' + (pct === null ? '—' : pct + '%') + '</td>' +
         '<td style="padding:7px 6px;text-align:center;">' + (a.latestNote ? '<span title="' + escapeHtml(a.latestNote) + '" style="cursor:help;border-bottom:1px dashed #94a3b8;">' + a.noteCount + '</span>' : (a.noteCount || '—')) + '</td>' +
         '</tr>';
     });
@@ -3150,10 +3173,11 @@ function printLog() {
   html += '<h3>سجل المتابعة الطلابية</h3>';
   html += '</div>';
   html += '<table><thead><tr>';
-  html += '<th width="4%">#</th><th width="22%">الطالب</th><th width="12%">الصف/الشعبة</th><th width="8%">الجلسات</th><th width="7%">حاضر</th><th width="7%">غائب</th><th width="8%">متأخر</th><th width="8%">السلوك</th><th width="9%">الانضباط</th><th width="7%">بلا كتاب</th><th width="8%">بلا واجب</th></tr></thead><tbody>';
+  html += '<th width="4%">#</th><th width="22%">الطالب</th><th width="12%">الصف/الشعبة</th><th width="8%">الجلسات</th><th width="7%">حاضر</th><th width="7%">غائب</th><th width="8%">متأخر</th><th width="8%">السلوك</th><th width="9%">الانضباط</th><th width="7%">بلا كتاب</th><th width="8%">بلا واجب</th><th width="8%">العلامة %</th></tr></thead><tbody>';
   filtered.forEach(function(s, i) {
     var a = logAggregate(s, from, to);
-    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.level) + ' - ' + escapeHtml(s.section) + '</td><td>' + a.sessions + '</td><td>' + a.present + '</td><td>' + a.absent + '</td><td>' + a.late + '</td><td>' + (a.behN ? (a.behSum / a.behN).toFixed(1) : '—') + '</td><td>' + (a.disN ? (a.disSum / a.disN).toFixed(1) : '—') + '</td><td>' + a.noBook + '</td><td>' + a.noHw + '</td></tr>';
+    var pct = studentMarksPct(s);
+    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.level) + ' - ' + escapeHtml(s.section) + '</td><td>' + a.sessions + '</td><td>' + a.present + '</td><td>' + a.absent + '</td><td>' + a.late + '</td><td>' + (a.behN ? (a.behSum / a.behN).toFixed(1) : '—') + '</td><td>' + (a.disN ? (a.disSum / a.disN).toFixed(1) : '—') + '</td><td>' + a.noBook + '</td><td>' + a.noHw + '</td><td style="font-weight:600;background:#f0fdf4;">' + (pct === null ? '—' : pct + '%') + '</td></tr>';
   });
   html += '</tbody></table></div>';
   var div = document.createElement('div');
