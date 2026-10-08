@@ -1765,7 +1765,12 @@ function renderReportsData() {
   var totalSess = sessionKeys.length;
 
   if (studentId) {
-    renderSingleStudentReport(parseInt(studentId), level, section, sessionKeys, totalSess, container);
+    var pid = parseInt(studentId);
+    var studentKeys = Object.keys(sessions).filter(function(k) {
+      var p = k.split('_');
+      return p.length === 4 && sessions[k].records && sessions[k].records[pid];
+    }).sort();
+    renderSingleStudentReport(pid, level, section, sessionKeys, studentKeys, totalSess, container);
   } else {
     renderAllStudentsReport(level, section, sessionKeys, container);
   }
@@ -1843,10 +1848,10 @@ function hBarPct(pct, color) {
     '<b style="min-width:42px;color:#1e3a5f;text-align:center;">' + pct + '%</b></div>';
 }
 
-function renderSingleStudentReport(studentId, level, section, sessionKeys, totalSess, container) {
+function renderSingleStudentReport(studentId, level, section, sessionKeys, studentKeys, totalSess, container) {
   var s = students.find(function(st) { return String(st.id) === String(studentId); });
   if (!s) { container.innerHTML = '<p style="color:#94a3b8;padding:20px;">الطالب غير موجود</p>'; return; }
-  if (!sessionKeys.length) {
+  if (!studentKeys.length) {
     container.innerHTML = '<div class="report-card"><h3>👤 ' + escapeHtml(s.name) + '</h3><p style="color:#94a3b8;font-size:13px;">لا توجد جلسات محفوظة لهذا الطالب</p></div>';
     return;
   }
@@ -1858,7 +1863,7 @@ function renderSingleStudentReport(studentId, level, section, sessionKeys, total
   var behSeries = [], disSeries = [], dateLabels = [];
   var sessionsDetail = [];
 
-  sessionKeys.forEach(function(k) {
+  studentKeys.forEach(function(k) {
     var rec = (sessions[k].records && sessions[k].records[s.id]) || {};
     var p = k.split('_');
     var att = rec.attendance || 'present';
@@ -1873,7 +1878,7 @@ function renderSingleStudentReport(studentId, level, section, sessionKeys, total
     else if (rec.book === 'no') bookNo++;
     if (rec.homework === 'yes') hwYes++;
     else if (rec.homework === 'no') hwNo++;
-    sessionsDetail.push({ date: p[0], period: p[1], rec: rec });
+    sessionsDetail.push({ date: p[0], period: p[1], lv: p[2], sec: p[3], rec: rec });
     var used = !!(rec.behavior || rec.discipline);
     if (used) {
       dateLabels.push((p[0].slice(8, 10)) + '/' + p[0].slice(5, 7));
@@ -1920,14 +1925,17 @@ function renderSingleStudentReport(studentId, level, section, sessionKeys, total
   html += '</div>';
 
   // Detailed breakdown
-  html += '<table class="report-table"><thead><tr><th>التاريخ</th><th>الحصة</th><th>الحضور</th><th>السلوك</th><th>الانضباط</th><th>الكتاب</th><th>الواجب</th><th>ملاحظات</th></tr></thead><tbody>';
+  html += '<table class="report-table"><thead><tr><th>التاريخ</th><th>الحصة</th><th>الشعبة</th><th>الحضور</th><th>السلوك</th><th>الانضباط</th><th>الكتاب</th><th>الواجب</th><th>ملاحظات</th></tr></thead><tbody>';
   sessionsDetail.forEach(function(sd) {
     var r = sd.rec;
     var attTxt = r.attendance === 'absent' ? 'غائب' : r.attendance === 'late' ? 'متأخر' : 'حاضر';
     var attCls = r.attendance === 'absent' ? 'color:#ef4444' : r.attendance === 'late' ? 'color:#f59e0b' : 'color:#10b981';
-    html += '<tr><td>' + sd.date + '</td><td>ح' + sd.period + '</td><td style="' + attCls + ';font-weight:600">' + attTxt + '</td><td>' + (r.behavior || '—') + '</td><td>' + (r.discipline || '—') + '</td><td>' + (r.book === 'yes' ? '✓' : r.book === 'no' ? '✗' : '—') + '</td><td>' + (r.homework === 'yes' ? '✓' : r.homework === 'no' ? '✗' : '—') + '</td><td style="text-align:right;font-size:12px;">' + (r.notes || '') + '</td></tr>';
+    var moved = (sd.lv !== s.level || sd.sec !== s.section);
+    var secCell = (REV_LEV[sd.lv] || sd.lv) + sd.sec + (moved ? ' <span style="font-size:9px;color:#f59e0b;background:#fef3c7;border-radius:4px;padding:1px 4px;">منقول</span>' : '');
+    html += '<tr><td>' + sd.date + '</td><td>ح' + sd.period + '</td><td style="font-weight:600;">' + secCell + '</td><td style="' + attCls + ';font-weight:600">' + attTxt + '</td><td>' + (r.behavior || '—') + '</td><td>' + (r.discipline || '—') + '</td><td>' + (r.book === 'yes' ? '✓' : r.book === 'no' ? '✗' : '—') + '</td><td>' + (r.homework === 'yes' ? '✓' : r.homework === 'no' ? '✗' : '—') + '</td><td style="text-align:right;font-size:12px;">' + (r.notes || '') + '</td></tr>';
   });
   html += '</tbody></table>';
+  html += '<div style="font-size:11px;color:#94a3b8;margin-top:8px;">الجلسات المعروضة تشمل كل الشعب التي سُجّلت للطالب (الشعبة الحالية: ' + (REV_LEV[level] || level) + section + ').</div>';
   html += '</div>';
   container.innerHTML = html;
 }
