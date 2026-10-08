@@ -1052,14 +1052,15 @@ const CONFIG_KEY = 'studentTrackerConfig';
 const SESSIONS_KEY = 'studentSessions';
 const SYNC_KEY = 'studentTrackerSync';
 const DEL_KEY = 'studentTrackerDeleted';
+const DELSESS_KEY = 'studentTrackerDeletedSessions';
 const MARKS_KEY = 'studentTrackerMarks';
 const GIST_FILE = 'students-control-data.json';
 const GIST_API = 'https://api.github.com/gists';
 let syncConf = { enabled: false, token: '', gistId: '', lastSyncAt: '' };
 let deletedIds = [];
+let deletedSessions = [];
 var dirtyStudentIds = {};
 var dirtySessions = {};
-var deletedSessionKeys = {};
 function markStudentDirty(id) {
   if (id != null) dirtyStudentIds[id] = true;
 }
@@ -1216,6 +1217,7 @@ function loadData() {
   loadSessions();
   loadSyncConf();
   loadDeleted();
+  loadDeletedSessions();
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) students = JSON.parse(data);
@@ -2532,6 +2534,8 @@ function saveSession() {
   var sk = sessKey(dt, prd, currentView, currentSection);
   if (!sessions[sk]) sessions[sk] = { records: {} };
   sessions[sk].records = sessions[sk].records || {};
+  var ti = deletedSessions.indexOf(sk);
+  if (ti > -1) { deletedSessions.splice(ti, 1); saveDeletedSessions(); }
   saveSessions();
   populateSessLoad();
   showToast('تم حفظ الجلسة');
@@ -2556,7 +2560,7 @@ function clearCurrentSession() {
   }
   if (!confirm('سيتم مسح كل بيانات الجلسة الحالية:\nالتاريخ: ' + currentSessDate + '\nالحصة: ' + currentPeriod + '\n' + currentView + ' - شعبة ' + currentSection + '\n\nهل تريد المتابعة؟')) return;
   delete sessions[sk];
-  deletedSessionKeys[sk] = true;
+  tombstoneSession(sk);
   saveSessions();
   populateSessLoad();
   renderTable();
@@ -2570,7 +2574,7 @@ function deleteSessionByKey() {
   var p = key.split('_');
   if (!confirm('سيتم حذف الجلسة المحفوظة نهائياً:\n' + p[0] + ' - الحصة ' + p[1] + '\n' + p[2] + ' - شعبة ' + p[3] + '\n\nهل تريد المتابعة؟')) return;
   delete sessions[key];
-  deletedSessionKeys[key] = true;
+  tombstoneSession(key);
   saveSessions();
   populateSessLoad();
   renderTable();
@@ -3562,11 +3566,24 @@ function tombstoneId(id) {
   if (deletedIds.indexOf(id) === -1) deletedIds.push(id);
   saveDeleted();
 }
+function loadDeletedSessions() {
+  try {
+    const raw = localStorage.getItem(DELSESS_KEY);
+    deletedSessions = raw ? JSON.parse(raw) : [];
+  } catch(e) { deletedSessions = []; }
+}
+function saveDeletedSessions() {
+  localStorage.setItem(DELSESS_KEY, JSON.stringify(deletedSessions));
+}
+function tombstoneSession(k) {
+  if (deletedSessions.indexOf(k) === -1) deletedSessions.push(k);
+  saveDeletedSessions();
+}
 function gistHeaders() {
   return { Authorization: 'token ' + syncConf.token, Accept: 'application/vnd.github+json' };
 }
 function buildBundle() {
-  return { app: 'متابعة الطلبة', version: 1, updatedAt: new Date().toISOString(), students: students, config: config, sessions: sessions, marks: marks, deletedIds: deletedIds };
+  return { app: 'متابعة الطلبة', version: 1, updatedAt: new Date().toISOString(), students: students, config: config, sessions: sessions, marks: marks, deletedIds: deletedIds, deletedSessions: deletedSessions };
 }
 function saveAllLocal() {
   saveData();
@@ -3581,6 +3598,11 @@ function mergeAll(remote) {
   });
   var dead = {};
   deletedIds.forEach(function(id) { dead[id] = true; });
+  var remoteDelSess = Array.isArray(remote.deletedSessions) ? remote.deletedSessions : [];
+  remoteDelSess.forEach(function(k) {
+    if (deletedSessions.indexOf(k) === -1) { changed = true; deletedSessions.push(k); }
+    if (sessions[k]) { delete sessions[k]; changed = true; }
+  });
   if (remote.students && remote.students.length !== undefined) {
     var localMap = {};
     students.forEach(function(s) { if (!dead[s.id]) localMap[s.id] = s; });
@@ -3608,7 +3630,7 @@ function mergeAll(remote) {
   if (remote.sessions) {
     Object.keys(remote.sessions).forEach(function(k) {
       var rrecs = remote.sessions[k].records || {};
-      if (deletedSessionKeys[k]) { changed = true; delete sessions[k]; return; }
+      if (deletedSessions.indexOf(k) > -1) { changed = true; delete sessions[k]; return; }
       if (!sessions[k]) { changed = true; sessions[k] = { records: {} }; }
       var lrecs = sessions[k].records = sessions[k].records || {};
       Object.keys(rrecs).forEach(function(sid) {
@@ -3688,7 +3710,7 @@ function mergeAll(remote) {
       });
     }
   }
-  if (changed) { syncConf.lastSyncAt = new Date().toISOString(); saveSyncConf(); saveDeleted(); }
+  if (changed) { syncConf.lastSyncAt = new Date().toISOString(); saveSyncConf(); saveDeleted(); saveDeletedSessions(); }
   return changed;
 }
 function findBestGist() {
@@ -3755,7 +3777,6 @@ function cloudPush() {
           saveSyncConf();
           dirtyStudentIds = {};
           dirtySessions = {};
-          deletedSessionKeys = {};
           resolve(true);
         })
         .catch(function(err) { reject(err); });
