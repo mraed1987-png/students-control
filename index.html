@@ -2808,7 +2808,7 @@ function sessionPoints(rec) {
   var p = 0;
   if (att === 'present') p += 2;
   else if (att === 'late') p += 1;
-  else if (att === 'absent') p -= 2;
+  else if (att === 'absent') p += 0;
   if (att !== 'absent') {
     var b = parseInt(rec.behavior, 10);
     if (!isNaN(b)) p += Math.max(0, Math.min(5, b));
@@ -3140,7 +3140,7 @@ function renderLog() {
       '<th style="padding:9px 6px;">معدل الانضباط</th>' +
       '<th style="padding:9px 6px;">بلا كتاب</th>' +
       '<th style="padding:9px 6px;">بلا واجب</th>' +
-      '<th style="padding:9px 6px;"><span title="حاضر +2 · متأخر +1 · غائب −2 · سلوك وانضباط (1-5) · كتاب +1 · واجب +1">نقاط المتابعة</span></th>' +
+      '<th style="padding:9px 6px;"><span title="حاضر +2 · متأخر +1 · غائب 0 · سلوك وانضباط (1-5) · كتاب +1 · واجب +1">نقاط المتابعة</span></th>' +
       '<th style="padding:9px 6px;">نسبة من الأعلى</th>' +
       '<th style="padding:9px 6px;">العلامة المجمعة %</th>' +
       '<th style="padding:9px 6px;">ملاحظات</th>' +
