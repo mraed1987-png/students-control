@@ -763,7 +763,13 @@ tr.absent:hover td { background: #fee2e2; }
                 <button class="att-all absent" onclick="setAllAttendance('absent')" title="تحديد جميع الطلاب غائب">✗ غائب</button>
               </div>
             </th>
-            <th style="width:90px">السلوك (1-5)</th>
+            <th style="width:90px">السلوك (1-5)
+              <div style="font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px;">5/5 للجميع</div>
+              <div style="display:flex;gap:3px;justify-content:center;margin-top:4px;">
+                <button class="att-all present" onclick="setAllBd('fill')" title="تعبئة السلوك والانضباط 5/5 للحاضرين الفاضيين فقط (يحافظ على الاستثنائيات)">فاضي</button>
+                <button class="att-all absent" onclick="setAllBd('reset')" title="إعادة تعيين كل قيم السلوك والانضباط 5/5 لجميع الحاضرين">الكل</button>
+              </div>
+            </th>
             <th style="width:90px">الانضباط (1-5)</th>
             <th style="width:90px">الكتاب
               <div style="font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px;">حضور الكل</div>
@@ -2406,6 +2412,10 @@ function setAttendance(id, status) {
   var rec = getSessRec(id);
   rec.attendance = status;
   if (status === 'absent') { rec.behavior = ''; rec.discipline = ''; rec.book = ''; rec.homework = ''; }
+  else {
+    if (rec.behavior === undefined || rec.behavior === '') rec.behavior = '5';
+    if (rec.discipline === undefined || rec.discipline === '') rec.discipline = '5';
+  }
   markSessionDirty();
   debouncedPersist('sessions');
   renderTable();
@@ -2509,6 +2519,30 @@ function setAllField(field, val, label) {
   var el = document.getElementById('bulk-' + field);
   if (el) el.value = '';
 }
+function setAllBd(mode) {
+  var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
+  if (!sessions[sk]) sessions[sk] = { records: {} };
+  sessions[sk].records = sessions[sk].records || {};
+  var list = students.filter(function(s) { return s.level === currentView && s.section === currentSection; });
+  if (!list.length) { showToast('لا يوجد طلاب في هذه الشعبة', 'error'); return; }
+  var filled = 0, touched = 0;
+  list.forEach(function(s) {
+    var rec = sessions[sk].records[s.id] || (sessions[sk].records[s.id] = {});
+    if (rec.attendance === 'absent') return;
+    if (mode === 'reset') {
+      rec.behavior = '5'; rec.discipline = '5'; touched++;
+    } else {
+      var did = false;
+      if (rec.behavior === undefined || rec.behavior === '') { rec.behavior = '5'; filled++; did = true; }
+      if (rec.discipline === undefined || rec.discipline === '') { rec.discipline = '5'; filled++; did = true; }
+      if (did) touched++;
+    }
+  });
+  markSessionDirty();
+  saveSessions();
+  renderTable();
+  showToast(mode === 'reset' ? ('تم تعيين السلوك والانضباط 5/5 للجميع (' + touched + ' طالب)') : ('تم تعبئة 5/5 للفاضيين فقط (' + filled + ' قيمة)'));
+}
 function setAllAttendance(status) {
   var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
   if (!sessions[sk]) sessions[sk] = { records: {} };
@@ -2519,6 +2553,10 @@ function setAllAttendance(status) {
     var rec = sessions[sk].records[s.id] || (sessions[sk].records[s.id] = {});
     rec.attendance = status;
     if (status === 'absent') { rec.behavior = ''; rec.discipline = ''; rec.book = ''; rec.homework = ''; }
+    else {
+      if (rec.behavior === undefined || rec.behavior === '') rec.behavior = '5';
+      if (rec.discipline === undefined || rec.discipline === '') rec.discipline = '5';
+    }
   });
   markSessionDirty();
   saveSessions();
