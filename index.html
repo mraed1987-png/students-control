@@ -1721,8 +1721,7 @@ document.addEventListener('change', function(e) {
 
 // --- Reports ---
 
-var rptSel = { level: '', section: '', student: '' };
-var monSel = { level: '', section: '', month: '' };
+var rptSel = { level: '', section: '', student: '', month: '' };
 var MONTHS_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 function monthLabelAr(ym) {
   if (!ym) return 'كل الأشهر';
@@ -1744,24 +1743,14 @@ function renderReports() {
     return;
   }
   var html = '<h2 style="font-size:18px;color:#1e3a5f;margin-bottom:16px;">📊 التقارير</h2>';
-  html += '<div class="report-card" style="margin-bottom:18px;">';
-  html += '<h3>🗓️ التقرير الشهري لشعبة</h3>';
-  html += '<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">';
-  html += '<div class="form-group" style="margin-bottom:0;"><label>المستوى</label><select id="monLevel" onchange="populateMonSections();populateMonMonths();renderMonthlyReport()">';
-  levels.forEach(function(l) { html += '<option value="' + l + '">' + l + '</option>'; });
-  html += '</select></div>';
-  html += '<div class="form-group" style="margin-bottom:0;"><label>الشعبة</label><select id="monSection" onchange="populateMonMonths();renderMonthlyReport()"></select></div>';
-  html += '<div class="form-group" style="margin-bottom:0;"><label>الشهر</label><select id="monMonth" onchange="renderMonthlyReport()"></select></div>';
-  html += '<div class="form-group" style="margin-bottom:0;"><button class="btn btn-secondary" onclick="printMonthlyReport()" style="padding:9px 16px;">🖨️ طباعة التقرير</button></div>';
-  html += '</div>';
-  html += '<div id="monthlyReportData"></div>';
-  html += '</div>';
   html += '<div class="reports-filters">';
-  html += '<div class="form-group"><label>المستوى</label><select id="rptLevel" onchange="populateRptSections();populateRptStudents();renderReportsData()">';
+  html += '<div class="form-group"><label>المستوى</label><select id="rptLevel" onchange="populateRptSections();populateRptStudents();populateRptMonths();renderReportsData()">';
   levels.forEach(function(l) { html += '<option value="' + l + '">' + l + '</option>'; });
   html += '</select></div>';
-  html += '<div class="form-group"><label>الشعبة</label><select id="rptSection" onchange="populateRptStudents();renderReportsData()"></select></div>';
+  html += '<div class="form-group"><label>الشعبة</label><select id="rptSection" onchange="populateRptStudents();populateRptMonths();renderReportsData()"></select></div>';
   html += '<div class="form-group"><label>الطالب</label><select id="rptStudent" onchange="renderReportsData()"></select></div>';
+  html += '<div class="form-group"><label>الشهر</label><select id="rptMonth" onchange="renderReportsData()"></select></div>';
+  html += '<div class="form-group"><button class="btn btn-secondary" onclick="printReports()" style="padding:9px 16px;">🖨️ طباعة / PDF</button></div>';
   html += '</div>';
   html += '<div class="reports-grid" id="reportsData"></div>';
   document.getElementById('reportsView').innerHTML = html;
@@ -1771,15 +1760,8 @@ function renderReports() {
     else if (!lvlEl.value) lvlEl.value = levels[0];
     populateRptSections();
     populateRptStudents();
+    populateRptMonths();
     renderReportsData();
-    var monLvlEl = document.getElementById('monLevel');
-    if (monLvlEl) {
-      if (monSel.level && levels.indexOf(monSel.level) > -1) monLvlEl.value = monSel.level;
-      else if (!monLvlEl.value) monLvlEl.value = levels[0];
-      populateMonSections();
-      populateMonMonths();
-      renderMonthlyReport();
-    }
   }
 }
 
@@ -1802,17 +1784,35 @@ function populateRptStudents() {
   if (rptSel.student && list.some(function(st) { return String(st.id) === String(rptSel.student); })) sel.value = String(rptSel.student);
 }
 
+function populateRptMonths() {
+  var level = document.getElementById('rptLevel').value;
+  var section = document.getElementById('rptSection').value;
+  var months = {};
+  Object.keys(sessions).forEach(function(k) {
+    var p = k.split('_');
+    if (p.length === 4 && p[2] === level && p[3] === section) months[p[0].slice(0, 7)] = true;
+  });
+  var list = Object.keys(months).sort().reverse();
+  var sel = document.getElementById('rptMonth');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">كل الأشهر</option>' + list.map(function(m) { return '<option value="' + m + '">' + monthLabelAr(m) + '</option>'; }).join('');
+  if (rptSel.month && (rptSel.month === '' || months[rptSel.month])) sel.value = rptSel.month;
+  else sel.value = '';
+}
+
 function renderReportsData() {
   var level = document.getElementById('rptLevel').value;
   var section = document.getElementById('rptSection').value;
   var studentId = document.getElementById('rptStudent').value;
+  var month = document.getElementById('rptMonth') ? document.getElementById('rptMonth').value : '';
   if (!level || !section) return;
-  rptSel.level = level; rptSel.section = section; rptSel.student = studentId;
+  rptSel.level = level; rptSel.section = section; rptSel.student = studentId; rptSel.month = month;
   var container = document.getElementById('reportsData');
+  var inMonth = function(k) { return !month || k.split('_')[0].slice(0, 7) === month; };
 
   var sessionKeys = Object.keys(sessions).filter(function(k) {
     var p = k.split('_');
-    return p.length === 4 && p[2] === level && p[3] === section;
+    return p.length === 4 && p[2] === level && p[3] === section && inMonth(k);
   }).sort();
   var totalSess = sessionKeys.length;
 
@@ -1820,11 +1820,11 @@ function renderReportsData() {
     var pid = parseInt(studentId);
     var studentKeys = Object.keys(sessions).filter(function(k) {
       var p = k.split('_');
-      return p.length === 4 && sessions[k].records && sessions[k].records[pid];
+      return p.length === 4 && sessions[k].records && sessions[k].records[pid] && inMonth(k);
     }).sort();
-    renderSingleStudentReport(pid, level, section, sessionKeys, studentKeys, totalSess, container);
+    renderSingleStudentReport(pid, level, section, sessionKeys, studentKeys, totalSess, container, month);
   } else {
-    renderAllStudentsReport(level, section, sessionKeys, container);
+    renderAllStudentsReport(level, section, sessionKeys, container, month);
   }
 }
 
@@ -1900,11 +1900,12 @@ function hBarPct(pct, color) {
     '<b style="min-width:42px;color:#1e3a5f;text-align:center;">' + pct + '%</b></div>';
 }
 
-function renderSingleStudentReport(studentId, level, section, sessionKeys, studentKeys, totalSess, container) {
+function renderSingleStudentReport(studentId, level, section, sessionKeys, studentKeys, totalSess, container, month) {
   var s = students.find(function(st) { return String(st.id) === String(studentId); });
   if (!s) { container.innerHTML = '<p style="color:#94a3b8;padding:20px;">الطالب غير موجود</p>'; return; }
+  var periodTxt = month ? monthLabelAr(month) : 'كل الأشهر';
   if (!studentKeys.length) {
-    container.innerHTML = '<div class="report-card"><h3>👤 ' + escapeHtml(s.name) + '</h3><p style="color:#94a3b8;font-size:13px;">لا توجد جلسات محفوظة لهذا الطالب</p></div>';
+    container.innerHTML = '<div class="report-card"><h3>👤 ' + escapeHtml(s.name) + ' — ' + escapeHtml(periodTxt) + '</h3><p style="color:#94a3b8;font-size:13px;">لا توجد جلسات محفوظة لهذا الطالب في ' + escapeHtml(periodTxt) + '</p></div>';
     return;
   }
 
@@ -1948,7 +1949,7 @@ function renderSingleStudentReport(studentId, level, section, sessionKeys, stude
   var attColor = parseFloat(attPct) >= 90 ? '#10b981' : parseFloat(attPct) >= 75 ? '#f59e0b' : '#ef4444';
 
   var html = '<div class="report-card">';
-  html += '<h3>👤 ' + escapeHtml(s.name) + (s.nationalId ? ' <span style="font-size:12px;color:#94a3b8;font-weight:400;">(' + escapeHtml(s.nationalId) + ')</span>' : '') + '</h3>';
+  html += '<h3>👤 ' + escapeHtml(s.name) + (s.nationalId ? ' <span style="font-size:12px;color:#94a3b8;font-weight:400;">(' + escapeHtml(s.nationalId) + ')</span>' : '') + ' <span style="font-size:12px;color:#94a3b8;font-weight:400;">— ' + escapeHtml(periodTxt) + '</span></h3>';
 
   // Summary badges
   html += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;">';
@@ -1992,14 +1993,15 @@ function renderSingleStudentReport(studentId, level, section, sessionKeys, stude
   container.innerHTML = html;
 }
 
-function renderAllStudentsReport(level, section, sessionKeys, container) {
+function renderAllStudentsReport(level, section, sessionKeys, container, month) {
   var list = students.filter(function(s) { return s.level === level && s.section === section; });
-  if (!list.length) {
+  var data = buildMonthlyData(level, section, month || '');
+  if (!list.length && !data.rows.length) {
     container.innerHTML = '<p style="color:#94a3b8;padding:20px;">لا يوجد طلاب في هذه الشعبة</p>';
     return;
   }
   var totalSess = sessionKeys.length;
-  var html = '';
+  var html = sectionSummaryHtml(data, month);
 
   // --- Attendance Report ---
   html += '<div class="report-card">';
@@ -2079,35 +2081,7 @@ function renderAllStudentsReport(level, section, sessionKeys, container) {
   container.innerHTML = html;
 }
 
-// --- Monthly section report ---
-
-function populateMonSections() {
-  var level = document.getElementById('monLevel').value;
-  if (!level) return;
-  monSel.level = level;
-  var secs = getSections(level);
-  var sel = document.getElementById('monSection');
-  sel.innerHTML = secs.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
-  if (monSel.section && secs.indexOf(monSel.section) > -1) sel.value = monSel.section;
-  monSel.section = sel.value;
-}
-
-function populateMonMonths() {
-  var level = document.getElementById('monLevel').value;
-  var section = document.getElementById('monSection').value;
-  monSel.section = section;
-  var months = {};
-  Object.keys(sessions).forEach(function(k) {
-    var p = k.split('_');
-    if (p.length === 4 && p[2] === level && p[3] === section) months[p[0].slice(0, 7)] = true;
-  });
-  var list = Object.keys(months).sort().reverse();
-  var sel = document.getElementById('monMonth');
-  sel.innerHTML = '<option value="">كل الأشهر</option>' + list.map(function(m) { return '<option value="' + m + '">' + monthLabelAr(m) + '</option>'; }).join('');
-  if (monSel.month && (monSel.month === '' || months[monSel.month])) { sel.value = monSel.month; }
-  else if (list.length) { sel.value = list[0]; monSel.month = list[0]; }
-  else { sel.value = ''; monSel.month = ''; }
-}
+// --- Section / period summary helpers ---
 
 function buildMonthlyData(level, section, month) {
   var sessionKeys = Object.keys(sessions).filter(function(k) {
@@ -2152,41 +2126,50 @@ function attColorFor(pct) {
   return pct >= 90 ? '#10b981' : pct >= 75 ? '#f59e0b' : '#ef4444';
 }
 
-function renderMonthlyReport() {
-  var container = document.getElementById('monthlyReportData');
-  if (!container) return;
-  var level = document.getElementById('monLevel').value;
-  var section = document.getElementById('monSection').value;
-  var month = document.getElementById('monMonth').value;
-  monSel.level = level; monSel.section = section; monSel.month = month;
-  if (!level || !section) { container.innerHTML = ''; return; }
-  var periodTxt = month ? monthLabelAr(month) : 'كل الأشهر';
-  var data = buildMonthlyData(level, section, month);
+function sectionTotals(data) {
+  var t = data.totals;
+  var total = t.present + t.absent + t.late;
+  return {
+    t: t,
+    total: total,
+    attPct: total ? (t.present / total * 100) : 0,
+    behAvg: t.behN ? (t.behSum / t.behN) : null,
+    disAvg: t.disN ? (t.disSum / t.disN) : null,
+    bookPct: (t.bookYes + t.bookNo) ? Math.round(t.bookYes / (t.bookYes + t.bookNo) * 100) : null,
+    hwPct: (t.hwYes + t.hwNo) ? Math.round(t.hwYes / (t.hwYes + t.hwNo) * 100) : null
+  };
+}
+
+function totalsRowHtml(st) {
+  var t = st.t;
+  return '<tr style="background:#f1f5f9;font-weight:700;">' +
+    '<td colspan="3">الإجمالي</td>' +
+    '<td>' + t.present + '</td><td>' + t.absent + '</td><td>' + t.late + '</td>' +
+    '<td style="color:' + attColorFor(st.attPct) + '">' + st.attPct.toFixed(1) + '%</td>' +
+    '<td>' + (st.behAvg !== null ? st.behAvg.toFixed(1) : '—') + '</td>' +
+    '<td>' + (st.disAvg !== null ? st.disAvg.toFixed(1) : '—') + '</td>' +
+    '<td>' + (st.bookPct !== null ? st.bookPct + '%' : '—') + '</td>' +
+    '<td>' + (st.hwPct !== null ? st.hwPct + '%' : '—') + '</td>' +
+    '</tr>';
+}
+
+function sectionSummaryHtml(data, month) {
   var rows = data.rows, t = data.totals;
-  if (!t.sessions) {
-    container.innerHTML = '<p style="color:#94a3b8;padding:12px 0;">لا توجد جلسات محفوظة لهذه الشعبة في ' + escapeHtml(periodTxt) + '.</p>';
-    return;
-  }
-  var totTotal = t.present + t.absent + t.late;
-  var attPct = totTotal ? (t.present / totTotal * 100) : 0;
-  var behAvg = t.behN ? (t.behSum / t.behN) : null;
-  var disAvg = t.disN ? (t.disSum / t.disN) : null;
-  var bookPct = (t.bookYes + t.bookNo) ? Math.round(t.bookYes / (t.bookYes + t.bookNo) * 100) : null;
-  var hwPct = (t.hwYes + t.hwNo) ? Math.round(t.hwYes / (t.hwYes + t.hwNo) * 100) : null;
+  if (!t.sessions) return '';
+  var st = sectionTotals(data);
+  var periodTxt = month ? monthLabelAr(month) : 'كل الأشهر';
+  var html = '<div class="report-card">';
+  html += '<h3>🗓️ ملخص الفترة — ' + escapeHtml(periodTxt) + '</h3>';
+  html += '<div style="font-size:12px;color:#64748b;margin-bottom:12px;">إجمالي الجلسات: ' + t.sessions + '</div>';
 
-  var html = '';
-  html += '<div style="font-size:12px;color:#64748b;margin-bottom:12px;">' + escapeHtml(REV_LEV[level] || level) + ' - شعبة ' + escapeHtml(section) + ' — ' + escapeHtml(periodTxt) + ' — إجمالي الجلسات: ' + t.sessions + '</div>';
-
-  // Summary badges
   html += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;">';
-  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:' + attColorFor(attPct) + ';">' + attPct.toFixed(1) + '%</div><div style="font-size:11px;color:#64748b;">الحضور العام</div></div>';
-  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">' + (behAvg !== null ? behAvg.toFixed(1) : '—') + (behAvg !== null ? ' / 5' : '') + '</div><div style="font-size:11px;color:#64748b;">متوسط السلوك</div></div>';
-  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">' + (disAvg !== null ? disAvg.toFixed(1) : '—') + (disAvg !== null ? ' / 5' : '') + '</div><div style="font-size:11px;color:#64748b;">متوسط الانضباط</div></div>';
-  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:#10b981;">' + (bookPct !== null ? bookPct + '%' : '—') + '</div><div style="font-size:11px;color:#64748b;">الكتاب</div></div>';
-  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:#0ea5e9;">' + (hwPct !== null ? hwPct + '%' : '—') + '</div><div style="font-size:11px;color:#64748b;">الواجب</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:' + attColorFor(st.attPct) + ';">' + st.attPct.toFixed(1) + '%</div><div style="font-size:11px;color:#64748b;">الحضور العام</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">' + (st.behAvg !== null ? st.behAvg.toFixed(1) : '—') + (st.behAvg !== null ? ' / 5' : '') + '</div><div style="font-size:11px;color:#64748b;">متوسط السلوك</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:#1e3a5f;">' + (st.disAvg !== null ? st.disAvg.toFixed(1) : '—') + (st.disAvg !== null ? ' / 5' : '') + '</div><div style="font-size:11px;color:#64748b;">متوسط الانضباط</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:#10b981;">' + (st.bookPct !== null ? st.bookPct + '%' : '—') + '</div><div style="font-size:11px;color:#64748b;">الكتاب</div></div>';
+  html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:95px;"><div style="font-size:22px;font-weight:700;color:#0ea5e9;">' + (st.hwPct !== null ? st.hwPct + '%' : '—') + '</div><div style="font-size:11px;color:#64748b;">الواجب</div></div>';
   html += '</div>';
 
-  // Charts
   html += '<div class="charts-grid" style="margin-bottom:16px;">';
   html += '<div class="chart-card"><div class="title">📅 حضور الشعبة</div>' +
     '<div style="display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;">' +
@@ -2204,7 +2187,6 @@ function renderMonthlyReport() {
     '</div>';
   html += '</div>';
 
-  // Table
   html += '<table class="report-table"><thead><tr><th>#</th><th>الطالب</th><th>الرقم الوطني</th><th>حاضر</th><th>غائب</th><th>متأخر</th><th>% الحضور</th><th>السلوك</th><th>الانضباط</th><th>% الكتاب</th><th>% الواجب</th></tr></thead><tbody>';
   rows.forEach(function(r, i) {
     var s = r.s;
@@ -2213,42 +2195,31 @@ function renderMonthlyReport() {
     var dAvg = r.disN ? (r.disSum / r.disN).toFixed(1) : '—';
     var bkTot = r.bookYes + r.bookNo, hwTot = r.hwYes + r.hwNo;
     var bkPct = bkTot ? Math.round(r.bookYes / bkTot * 100) : '—';
-    var hwPct = hwTot ? Math.round(r.hwYes / hwTot * 100) : '—';
+    var hwPct2 = hwTot ? Math.round(r.hwYes / hwTot * 100) : '—';
     var nameCell = escapeHtml(s.name) + (r.moved ? ' <span style="font-size:9px;color:#f59e0b;background:#fef3c7;border-radius:4px;padding:1px 4px;">منقول</span>' : '');
-    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + nameCell + '</td><td>' + escapeHtml(s.nationalId || '—') + '</td><td>' + r.present + '</td><td>' + r.absent + '</td><td>' + r.late + '</td><td style="color:' + attColorFor(pct) + ';font-weight:700">' + (r.total ? pct.toFixed(1) + '%' : '—') + '</td><td>' + bAvg + '</td><td>' + dAvg + '</td><td>' + (bkPct === '—' ? '—' : bkPct + '%') + '</td><td>' + (hwPct === '—' ? '—' : hwPct + '%') + '</td></tr>';
+    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + nameCell + '</td><td>' + escapeHtml(s.nationalId || '—') + '</td><td>' + r.present + '</td><td>' + r.absent + '</td><td>' + r.late + '</td><td style="color:' + attColorFor(pct) + ';font-weight:700">' + (r.total ? pct.toFixed(1) + '%' : '—') + '</td><td>' + bAvg + '</td><td>' + dAvg + '</td><td>' + (bkPct === '—' ? '—' : bkPct + '%') + '</td><td>' + (hwPct2 === '—' ? '—' : hwPct2 + '%') + '</td></tr>';
   });
-  html += totalsRowHtml(t, attPct, behAvg, disAvg, bookPct, hwPct);
+  html += totalsRowHtml(st);
   html += '</tbody></table>';
-
-  container.innerHTML = html;
+  html += '</div>';
+  return html;
 }
 
-function totalsRowHtml(t, attPct, behAvg, disAvg, bookPct, hwPct) {
-  return '<tr style="background:#f1f5f9;font-weight:700;">' +
-    '<td colspan="3">الإجمالي</td>' +
-    '<td>' + t.present + '</td><td>' + t.absent + '</td><td>' + t.late + '</td>' +
-    '<td style="color:' + attColorFor(attPct) + '">' + attPct.toFixed(1) + '%</td>' +
-    '<td>' + (behAvg !== null ? behAvg.toFixed(1) : '—') + '</td>' +
-    '<td>' + (disAvg !== null ? disAvg.toFixed(1) : '—') + '</td>' +
-    '<td>' + (bookPct !== null ? bookPct + '%' : '—') + '</td>' +
-    '<td>' + (hwPct !== null ? hwPct + '%' : '—') + '</td>' +
-    '</tr>';
-}
-
-function printMonthlyReport() {
-  var level = document.getElementById('monLevel') ? document.getElementById('monLevel').value : '';
-  var section = document.getElementById('monSection') ? document.getElementById('monSection').value : '';
-  var month = document.getElementById('monMonth') ? document.getElementById('monMonth').value : '';
+function printReports() {
+  var level = document.getElementById('rptLevel') ? document.getElementById('rptLevel').value : '';
+  var section = document.getElementById('rptSection') ? document.getElementById('rptSection').value : '';
+  var studentId = document.getElementById('rptStudent') ? document.getElementById('rptStudent').value : '';
+  var month = document.getElementById('rptMonth') ? document.getElementById('rptMonth').value : '';
   if (!level || !section) { showToast('اختر المستوى والشعبة', 'error'); return; }
+  if (studentId) printStudentReport(parseInt(studentId), level, section, month);
+  else printSectionReport(level, section, month);
+}
+
+function printSectionReport(level, section, month) {
   var data = buildMonthlyData(level, section, month);
   var rows = data.rows, t = data.totals;
   if (!t.sessions) { showToast('لا توجد جلسات محفوظة لهذه الشعبة في هذه الفترة', 'error'); return; }
-  var totTotal = t.present + t.absent + t.late;
-  var attPct = totTotal ? (t.present / totTotal * 100) : 0;
-  var behAvg = t.behN ? (t.behSum / t.behN) : null;
-  var disAvg = t.disN ? (t.disSum / t.disN) : null;
-  var bookPct = (t.bookYes + t.bookNo) ? Math.round(t.bookYes / (t.bookYes + t.bookNo) * 100) : null;
-  var hwPct = (t.hwYes + t.hwNo) ? Math.round(t.hwYes / (t.hwYes + t.hwNo) * 100) : null;
+  var st = sectionTotals(data);
   var periodTxt = month ? monthLabelAr(month) : 'كل الأشهر';
 
   var html = '<div id="printArea">';
@@ -2261,8 +2232,8 @@ function printMonthlyReport() {
   if (config.semester) meta.push('الفصل: ' + escapeHtml(config.semester));
   meta.push('التاريخ: ' + todayStr());
   html += '<div class="print-meta">' + meta.join(' | ') + '</div>';
-  html += '<h3>التقرير الشهري — ' + escapeHtml(REV_LEV[level] || level) + ' - شعبة ' + escapeHtml(section) + ' — ' + escapeHtml(periodTxt) + '</h3>';
-  html += '<div class="print-meta" style="justify-content:center;">عدد الجلسات: ' + t.sessions + ' | الحضور العام: ' + attPct.toFixed(1) + '% | متوسط السلوك: ' + (behAvg !== null ? behAvg.toFixed(1) : '—') + ' | متوسط الانضباط: ' + (disAvg !== null ? disAvg.toFixed(1) : '—') + ' | الكتاب: ' + (bookPct !== null ? bookPct + '%' : '—') + ' | الواجب: ' + (hwPct !== null ? hwPct + '%' : '—') + '</div>';
+  html += '<h3>تقرير الشعبة — ' + escapeHtml(REV_LEV[level] || level) + ' - شعبة ' + escapeHtml(section) + ' — ' + escapeHtml(periodTxt) + '</h3>';
+  html += '<div class="print-meta" style="justify-content:center;">عدد الجلسات: ' + t.sessions + ' | الحضور العام: ' + st.attPct.toFixed(1) + '% | متوسط السلوك: ' + (st.behAvg !== null ? st.behAvg.toFixed(1) : '—') + ' | متوسط الانضباط: ' + (st.disAvg !== null ? st.disAvg.toFixed(1) : '—') + ' | الكتاب: ' + (st.bookPct !== null ? st.bookPct + '%' : '—') + ' | الواجب: ' + (st.hwPct !== null ? st.hwPct + '%' : '—') + '</div>';
   html += '</div>';
   html += '<table><thead><tr>';
   html += '<th width="4%">#</th><th width="22%">الطالب</th><th width="12%">الرقم الوطني</th><th width="7%">حاضر</th><th width="7%">غائب</th><th width="7%">متأخر</th><th width="9%">% الحضور</th><th width="8%">السلوك</th><th width="8%">الانضباط</th><th width="8%">% الكتاب</th><th width="8%">% الواجب</th></tr></thead><tbody>';
@@ -2273,10 +2244,58 @@ function printMonthlyReport() {
     var dAvg = r.disN ? (r.disSum / r.disN).toFixed(1) : '—';
     var bkTot = r.bookYes + r.bookNo, hwTot = r.hwYes + r.hwNo;
     var bkPct = bkTot ? Math.round(r.bookYes / bkTot * 100) : '—';
-    var hwPct = hwTot ? Math.round(r.hwYes / hwTot * 100) : '—';
-    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + (r.moved ? ' (منقول)' : '') + '</td><td>' + escapeHtml(s.nationalId || '—') + '</td><td>' + r.present + '</td><td>' + r.absent + '</td><td>' + r.late + '</td><td>' + (r.total ? pct.toFixed(1) + '%' : '—') + '</td><td>' + bAvg + '</td><td>' + dAvg + '</td><td>' + (bkPct === '—' ? '—' : bkPct + '%') + '</td><td>' + (hwPct === '—' ? '—' : hwPct + '%') + '</td></tr>';
+    var hwPct2 = hwTot ? Math.round(r.hwYes / hwTot * 100) : '—';
+    html += '<tr><td>' + (i + 1) + '</td><td style="text-align:right">' + escapeHtml(s.name) + (r.moved ? ' (منقول)' : '') + '</td><td>' + escapeHtml(s.nationalId || '—') + '</td><td>' + r.present + '</td><td>' + r.absent + '</td><td>' + r.late + '</td><td>' + (r.total ? pct.toFixed(1) + '%' : '—') + '</td><td>' + bAvg + '</td><td>' + dAvg + '</td><td>' + (bkPct === '—' ? '—' : bkPct + '%') + '</td><td>' + (hwPct2 === '—' ? '—' : hwPct2 + '%') + '</td></tr>';
   });
-  html += '<tr><td colspan="3"><b>الإجمالي</b></td><td><b>' + t.present + '</b></td><td><b>' + t.absent + '</b></td><td><b>' + t.late + '</b></td><td><b>' + attPct.toFixed(1) + '%</b></td><td><b>' + (behAvg !== null ? behAvg.toFixed(1) : '—') + '</b></td><td><b>' + (disAvg !== null ? disAvg.toFixed(1) : '—') + '</b></td><td><b>' + (bookPct !== null ? bookPct + '%' : '—') + '</b></td><td><b>' + (hwPct !== null ? hwPct + '%' : '—') + '</b></td></tr>';
+  html += '<tr><td colspan="3"><b>الإجمالي</b></td><td><b>' + t.present + '</b></td><td><b>' + t.absent + '</b></td><td><b>' + t.late + '</b></td><td><b>' + st.attPct.toFixed(1) + '%</b></td><td><b>' + (st.behAvg !== null ? st.behAvg.toFixed(1) : '—') + '</b></td><td><b>' + (st.disAvg !== null ? st.disAvg.toFixed(1) : '—') + '</b></td><td><b>' + (st.bookPct !== null ? st.bookPct + '%' : '—') + '</b></td><td><b>' + (st.hwPct !== null ? st.hwPct + '%' : '—') + '</b></td></tr>';
+  html += '</tbody></table></div>';
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  doPrint('landscape');
+  document.body.removeChild(div);
+}
+
+function printStudentReport(studentId, level, section, month) {
+  var s = students.find(function(st) { return String(st.id) === String(studentId); });
+  if (!s) { showToast('الطالب غير موجود', 'error'); return; }
+  var inMonth = function(k) { return !month || k.split('_')[0].slice(0, 7) === month; };
+  var keys = Object.keys(sessions).filter(function(k) {
+    var p = k.split('_');
+    return p.length === 4 && sessions[k].records && sessions[k].records[studentId] && inMonth(k);
+  }).sort();
+  if (!keys.length) { showToast('لا توجد جلسات محفوظة لهذا الطالب في هذه الفترة', 'error'); return; }
+  var periodTxt = month ? monthLabelAr(month) : 'كل الأشهر';
+  var present = 0, absent = 0, late = 0;
+  keys.forEach(function(k) {
+    var rec = sessions[k].records[studentId] || {};
+    var att = rec.attendance || 'present';
+    if (att === 'absent') absent++; else if (att === 'late') late++; else present++;
+  });
+  var total = present + absent + late;
+  var attPct = total ? (present / total * 100) : 0;
+
+  var html = '<div id="printArea">';
+  html += '<div class="print-header">';
+  html += '<h2>' + (config.schoolName || 'متابعة الطلاب') + '</h2>';
+  var meta = [];
+  if (config.directorate) meta.push('المديرية: ' + escapeHtml(config.directorate));
+  if (config.teacherName) meta.push('المعلم/ة: ' + escapeHtml(config.teacherName));
+  if (config.academicYear) meta.push('العام: ' + escapeHtml(config.academicYear));
+  if (config.semester) meta.push('الفصل: ' + escapeHtml(config.semester));
+  meta.push('التاريخ: ' + todayStr());
+  html += '<div class="print-meta">' + meta.join(' | ') + '</div>';
+  html += '<h3>تقرير الطالب — ' + escapeHtml(s.name) + (s.nationalId ? ' (' + escapeHtml(s.nationalId) + ')' : '') + ' — ' + escapeHtml(REV_LEV[level] || level) + ' - شعبة ' + escapeHtml(section) + ' — ' + escapeHtml(periodTxt) + '</h3>';
+  html += '<div class="print-meta" style="justify-content:center;">عدد الجلسات: ' + total + ' | حاضر: ' + present + ' | غائب: ' + absent + ' | متأخر: ' + late + ' | نسبة الحضور: ' + attPct.toFixed(1) + '%</div>';
+  html += '</div>';
+  html += '<table><thead><tr>';
+  html += '<th width="14%">التاريخ</th><th width="8%">الحصة</th><th width="14%">الشعبة</th><th width="10%">الحضور</th><th width="9%">السلوك</th><th width="10%">الانضباط</th><th width="9%">الكتاب</th><th width="9%">الواجب</th><th width="17%">ملاحظات</th></tr></thead><tbody>';
+  keys.forEach(function(k) {
+    var rec = sessions[k].records[studentId] || {};
+    var p = k.split('_');
+    var attTxt = rec.attendance === 'absent' ? 'غائب' : rec.attendance === 'late' ? 'متأخر' : 'حاضر';
+    html += '<tr><td>' + p[0] + '</td><td>ح' + p[1] + '</td><td>' + escapeHtml(REV_LEV[p[2]] || p[2]) + escapeHtml(p[3]) + '</td><td>' + attTxt + '</td><td>' + (rec.behavior || '—') + '</td><td>' + (rec.discipline || '—') + '</td><td>' + (rec.book === 'yes' ? '✓' : rec.book === 'no' ? '✗' : '—') + '</td><td>' + (rec.homework === 'yes' ? '✓' : rec.homework === 'no' ? '✗' : '—') + '</td><td style="text-align:right">' + escapeHtml(rec.notes || '') + '</td></tr>';
+  });
   html += '</tbody></table></div>';
   var div = document.createElement('div');
   div.innerHTML = html;
