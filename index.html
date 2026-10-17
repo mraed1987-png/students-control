@@ -766,11 +766,17 @@ tr.absent:hover td { background: #fee2e2; }
             <th style="width:90px">السلوك (1-5)
               <div style="font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px;">5/5 للجميع</div>
               <div style="display:flex;gap:3px;justify-content:center;margin-top:4px;">
-                <button class="att-all present" onclick="setAllBd('fill')" title="تعبئة السلوك والانضباط 5/5 للحاضرين الفاضيين فقط (يحافظ على الاستثنائيات)">فاضي</button>
-                <button class="att-all absent" onclick="setAllBd('reset')" title="إعادة تعيين كل قيم السلوك والانضباط 5/5 لجميع الحاضرين">الكل</button>
+                <button class="att-all present" onclick="setAllBd('behavior','fill')" title="تعبئة السلوك 5/5 للحاضرين الفاضيين فقط (يحافظ على الاستثنائيات)">فاضي</button>
+                <button class="att-all absent" onclick="setAllBd('behavior','reset')" title="إعادة تعيين السلوك 5/5 لجميع الحاضرين">الكل</button>
               </div>
             </th>
-            <th style="width:90px">الانضباط (1-5)</th>
+            <th style="width:90px">الانضباط (1-5)
+              <div style="font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px;">5/5 للجميع</div>
+              <div style="display:flex;gap:3px;justify-content:center;margin-top:4px;">
+                <button class="att-all present" onclick="setAllBd('discipline','fill')" title="تعبئة الانضباط 5/5 للحاضرين الفاضيين فقط (يحافظ على الاستثنائيات)">فاضي</button>
+                <button class="att-all absent" onclick="setAllBd('discipline','reset')" title="إعادة تعيين الانضباط 5/5 لجميع الحاضرين">الكل</button>
+              </div>
+            </th>
             <th style="width:90px">الكتاب
               <div style="font-size:10px;font-weight:400;color:#94a3b8;margin-top:2px;">حضور الكل</div>
               <div style="display:flex;gap:3px;justify-content:center;margin-top:4px;">
@@ -2519,7 +2525,9 @@ function setAllField(field, val, label) {
   var el = document.getElementById('bulk-' + field);
   if (el) el.value = '';
 }
-function setAllBd(mode) {
+function setAllBd(field, mode) {
+  var fields = field === 'both' ? ['behavior', 'discipline'] : [field];
+  var label = field === 'discipline' ? 'الانضباط' : (field === 'behavior' ? 'السلوك' : 'السلوك والانضباط');
   var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
   if (!sessions[sk]) sessions[sk] = { records: {} };
   sessions[sk].records = sessions[sk].records || {};
@@ -2529,19 +2537,17 @@ function setAllBd(mode) {
   list.forEach(function(s) {
     var rec = sessions[sk].records[s.id] || (sessions[sk].records[s.id] = {});
     if (rec.attendance === 'absent') return;
-    if (mode === 'reset') {
-      rec.behavior = '5'; rec.discipline = '5'; touched++;
-    } else {
-      var did = false;
-      if (rec.behavior === undefined || rec.behavior === '') { rec.behavior = '5'; filled++; did = true; }
-      if (rec.discipline === undefined || rec.discipline === '') { rec.discipline = '5'; filled++; did = true; }
-      if (did) touched++;
-    }
+    var did = false;
+    fields.forEach(function(f) {
+      if (mode === 'reset') { rec[f] = '5'; did = true; }
+      else if (rec[f] === undefined || rec[f] === '') { rec[f] = '5'; filled++; did = true; }
+    });
+    if (did) touched++;
   });
   markSessionDirty();
   saveSessions();
   renderTable();
-  showToast(mode === 'reset' ? ('تم تعيين السلوك والانضباط 5/5 للجميع (' + touched + ' طالب)') : ('تم تعبئة 5/5 للفاضيين فقط (' + filled + ' قيمة)'));
+  showToast(mode === 'reset' ? ('تم تعيين ' + label + ' 5/5 للجميع (' + touched + ' طالب)') : ('تم تعبئة ' + label + ' 5/5 للفاضيين فقط (' + filled + ' قيمة)'));
 }
 function setAllAttendance(status) {
   var sk = sessKey(currentSessDate, currentPeriod, currentView, currentSection);
