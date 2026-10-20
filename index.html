@@ -866,6 +866,15 @@ tr.absent:hover td { background: #fee2e2; }
       </div>
 
       <div class="settings-section">
+        <h3>🗑️ سلة المحذوفين <span id="trashCount" style="font-size:13px;color:#94a3b8;font-weight:400;"></span></h3>
+        <p style="font-size:13px;color:#64748b;margin:2px 0 10px;">الطلاب المحذوفون يُحذفون من جميع الشعب والسجلات والعلامات، ويُحفظون هنا لاستعادتهم كاملة (مع سجلاتهم وعلاماتهم) عند الحاجة.</p>
+        <div id="trashList"></div>
+        <div style="margin-top:8px;">
+          <button class="btn btn-sm" style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;" onclick="emptyTrash()">🗑️ تفريغ السلة نهائيًا</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
         <h3>☁️ المزامنة السحابية (GitHub Gist)</h3>
         <p style="font-size:13px;color:#64748b;margin:2px 0 10px;">
           تزامن تلقائي بين أجهزتك عبر حساب GitHub. كل تعديل يُرفع خلال ثوانٍ، ويُسحب عند فتح الصفحة. الـ Token يُخزّن محلياً على الجهاز فقط ولا يدخل في الملف أو النسخ الاحتياطية.
@@ -1066,11 +1075,13 @@ const SYNC_KEY = 'studentTrackerSync';
 const DEL_KEY = 'studentTrackerDeleted';
 const DELSESS_KEY = 'studentTrackerDeletedSessions';
 const MARKS_KEY = 'studentTrackerMarks';
+const TRASH_KEY = 'studentTrackerTrash';
 const GIST_FILE = 'students-control-data.json';
 const GIST_API = 'https://api.github.com/gists';
 let syncConf = { enabled: false, token: '', gistId: '', lastSyncAt: '' };
 let deletedIds = [];
 let deletedSessions = [];
+let trash = [];
 var dirtyStudentIds = {};
 var dirtySessions = {};
 function markStudentDirty(id) {
@@ -1230,6 +1241,7 @@ function loadData() {
   loadSyncConf();
   loadDeleted();
   loadDeletedSessions();
+  loadTrash();
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) students = JSON.parse(data);
@@ -2320,6 +2332,7 @@ function loadSettingsForm() {
     updateSyncStatus('غير مفعلة - أدخل الـ GitHub Token للبدء');
   }
   renderLevelsManager();
+  renderTrash();
 }
 
 function saveSettings() {
@@ -2390,8 +2403,19 @@ function addLevel() {
 
 function removeLevel(name) {
   var count = students.filter(function(s) { return s.level === name; }).length;
-  if (!confirm(count ? 'هذا الصف يحتوي على ' + count + ' طالب. هل تريد حذف الصف وجميع طلابه؟' : 'هل تريد حذف الصف "' + name + '"؟')) return;
-  students.forEach(function(s) { if (s.level === name) tombstoneId(s.id); });
+  if (!confirm(count ? 'هذا الصف يحتوي على ' + count + ' طالب. هل تريد حذف الصف وجميع طلابه؟ (يمكن استعادتهم من سلة المحذوفين)' : 'هل تريد حذف الصف "' + name + '"؟')) return;
+  students.filter(function(s) { return s.level === name; }).forEach(function(s) {
+    var recs = {}, mk = {};
+    Object.keys(sessions).forEach(function(k) {
+      if (sessions[k].records && sessions[k].records[s.id]) { recs[k] = sessions[k].records[s.id]; delete sessions[k].records[s.id]; }
+    });
+    Object.keys(marks).forEach(function(kk) {
+      if (marks[kk] && marks[kk][s.id] !== undefined) { mk[kk] = marks[kk][s.id]; delete marks[kk][s.id]; }
+    });
+    trash.unshift({ id: s.id, student: { id: s.id, name: s.name, level: s.level, section: s.section, nationalId: s.nationalId || '' }, records: recs, marks: mk, deletedAt: new Date().toISOString() });
+    tombstoneId(s.id);
+  });
+  saveTrash();
   students = students.filter(function(s) { return s.level !== name; });
   delete config.levels[name];
   Object.keys(sessions).forEach(function(k) {
@@ -2606,24 +2630,133 @@ function importStudents() {
 function deleteStudentAt(idx) {
   var s = students[idx];
   if (!s) return;
-  if (!confirm('هل تريد حذف الطالب "' + s.name + '"؟')) return;
+  if (!confirm('هل تريد حذف الطالب "' + s.name + '" حذفًا نهائيًا من جميع الشعب والسجلات؟\nيمكنك استعادته لاحقًا من "سلة المحذوفين" في الإعدادات.')) return;
   var id = s.id;
+  var recs = {};
+  var mk = {};
+  Object.keys(sessions).forEach(function(k) {
+    if (sessions[k].records && sessions[k].records[id]) {
+      recs[k] = sessions[k].records[id];
+      delete sessions[k].records[id];
+    }
+  });
+  Object.keys(marks).forEach(function(kk) {
+    if (marks[kk] && marks[kk][id] !== undefined) {
+      mk[kk] = marks[kk][id];
+      delete marks[kk][id];
+    }
+  });
+  trash.unshift({
+    id: id,
+    student: { id: s.id, name: s.name, level: s.level, section: s.section, nationalId: s.nationalId || '' },
+    records: recs,
+    marks: mk,
+    deletedAt: new Date().toISOString()
+  });
+  saveTrash();
   students.splice(idx, 1);
   tombstoneId(id);
   saveData();
-  Object.keys(sessions).forEach(function(k) {
-    if (sessions[k].records) delete sessions[k].records[id];
-  });
   saveSessions();
-  Object.keys(marks).forEach(function(kk) { if (marks[kk]) delete marks[kk][id]; });
   saveMarks();
   renderAll();
-  showToast('تم حذف الطالب');
+  showToast('تم حذف الطالب من جميع الشعب — يمكن استعادته من سلة المحذوفين');
+}
+
+function restoreStudent(trashId) {
+  var i = -1;
+  for (var x = 0; x < trash.length; x++) { if (trash[x].id === trashId) { i = x; break; } }
+  if (i === -1) return;
+  var t = trash[i];
+  var id = t.student.id;
+  if (students.some(function(st) { return st.id === id; })) id = nextStudentId();
+  var st = {
+    id: id,
+    name: t.student.name,
+    level: t.student.level,
+    section: t.student.section,
+    nationalId: t.student.nationalId || ''
+  };
+  students.push(st);
+  Object.keys(t.records || {}).forEach(function(k) {
+    if (!sessions[k]) sessions[k] = { records: {} };
+    if (!sessions[k].records) sessions[k].records = {};
+    sessions[k].records[id] = t.records[k];
+  });
+  Object.keys(t.marks || {}).forEach(function(kk) {
+    if (!marks[kk]) marks[kk] = {};
+    marks[kk][id] = t.marks[kk];
+  });
+  trash.splice(i, 1);
+  saveTrash();
+  deletedIds = deletedIds.filter(function(v) { return v !== t.student.id && v !== id; });
+  saveDeleted();
+  markStudentDirty(id);
+  saveData();
+  saveSessions();
+  saveMarks();
+  scheduleAutoPush();
+  renderAll();
+  showToast('تم استعادة الطالب "' + st.name + '"');
+}
+
+function purgeTrash(trashId) {
+  if (!confirm('حذف هذا الطالب من السلة نهائيًا؟ لا يمكن التراجع عن هذه الخطوة.')) return;
+  trash = trash.filter(function(t) { return t.id !== trashId; });
+  saveTrash();
+  renderTrash();
+  showToast('تم الحذف النهائي من السلة');
+}
+
+function emptyTrash() {
+  if (!trash.length) { showToast('السلة فارغة', 'error'); return; }
+  if (!confirm('تفريغ سلة المحذوفين نهائيًا (' + trash.length + ' طالب)؟ لا يمكن التراجع.')) return;
+  trash = [];
+  saveTrash();
+  renderTrash();
+  showToast('تم تفريغ السلة');
+}
+
+function renderTrash() {
+  var box = document.getElementById('trashList');
+  var countEl = document.getElementById('trashCount');
+  if (countEl) countEl.textContent = trash.length ? ('(' + trash.length + ')') : '';
+  if (!box) return;
+  if (!trash.length) {
+    box.innerHTML = '<p style="color:#94a3b8;font-size:13px;margin:4px 0;">لا يوجد طلاب محذوفون.</p>';
+    return;
+  }
+  box.innerHTML = trash.map(function(t) {
+    var d = t.deletedAt ? new Date(t.deletedAt).toLocaleString('ar-SY') : '';
+    var recCount = Object.keys(t.records || {}).length;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;flex-wrap:wrap;">' +
+      '<div style="font-size:13px;color:#334155;">' +
+        '<strong>' + escapeHtml(t.student.name) + '</strong>' +
+        ' <span style="color:#94a3b8;font-size:12px;">— ' + escapeHtml(t.student.level) + ' / ' + escapeHtml(t.student.section) + ' · ' + recCount + ' جلسة</span>' +
+        (d ? '<div style="color:#94a3b8;font-size:11px;">حُذف: ' + escapeHtml(d) + '</div>' : '') +
+      '</div>' +
+      '<div style="display:flex;gap:6px;">' +
+        '<button class="btn btn-success btn-sm" onclick="restoreStudent(' + t.id + ')">↩️ استعادة</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="purgeTrash(' + t.id + ')">🗑️ نهائي</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 
 function clearAll() {
-  if (!confirm('هل تريد تفريغ جميع البيانات؟')) return;
-  students.forEach(function(s) { tombstoneId(s.id); });
+  if (!confirm('هل تريد تفريغ جميع البيانات؟ سيتم نقل جميع الطلاب إلى سلة المحذوفين ويمكن استعادتهم.')) return;
+  students.forEach(function(s) {
+    var recs = {}, mk = {};
+    Object.keys(sessions).forEach(function(k) {
+      if (sessions[k].records && sessions[k].records[s.id]) { recs[k] = sessions[k].records[s.id]; }
+    });
+    Object.keys(marks).forEach(function(kk) {
+      if (marks[kk] && marks[kk][s.id] !== undefined) { mk[kk] = marks[kk][s.id]; }
+    });
+    trash.unshift({ id: s.id, student: { id: s.id, name: s.name, level: s.level, section: s.section, nationalId: s.nationalId || '' }, records: recs, marks: mk, deletedAt: new Date().toISOString() });
+    tombstoneId(s.id);
+  });
+  saveTrash();
   students = [];
   sessions = {};
   marks = {};
@@ -2631,7 +2764,7 @@ function clearAll() {
   saveSessions();
   saveMarks();
   renderAll();
-  showToast('تم التفريغ');
+  showToast('تم التفريغ — الطلاب في سلة المحذوفين');
 }
 
 function getSessRec(id) {
@@ -3847,7 +3980,9 @@ function exportBackup() {
     exportedAt: new Date().toISOString(),
     students: students,
     config: config,
-    sessions: sessions
+    sessions: sessions,
+    marks: marks,
+    trash: trash
   };
   var blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=UTF-8' });
   var filename = 'متابعة_الطلبة_' + todayStr() + '_نسخة.json';
@@ -3877,10 +4012,14 @@ function importBackup(event) {
     students = data.students;
     config = data.config;
     sessions = data.sessions;
+    if (data.marks && typeof data.marks === 'object') marks = data.marks; else marks = {};
+    if (Array.isArray(data.trash)) trash = data.trash; else trash = [];
+    saveTrash();
     normalizeStudentLevels();
     saveData();
     saveConfig();
     saveSessions();
+    saveMarks();
     currentView = 'settings';
     currentSection = getSections(currentView)[0] || 'أ';
     if (typeof loadSettingsForm === 'function') loadSettingsForm();
@@ -3914,6 +4053,16 @@ function tombstoneId(id) {
   if (deletedIds.indexOf(id) === -1) deletedIds.push(id);
   saveDeleted();
 }
+function loadTrash() {
+  try {
+    const raw = localStorage.getItem(TRASH_KEY);
+    trash = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(trash)) trash = [];
+  } catch(e) { trash = []; }
+}
+function saveTrash() {
+  try { localStorage.setItem(TRASH_KEY, JSON.stringify(trash)); } catch(e) {}
+}
 function loadDeletedSessions() {
   try {
     const raw = localStorage.getItem(DELSESS_KEY);
@@ -3931,7 +4080,7 @@ function gistHeaders() {
   return { Authorization: 'token ' + syncConf.token, Accept: 'application/vnd.github+json' };
 }
 function buildBundle() {
-  return { app: 'متابعة الطلبة', version: 1, updatedAt: new Date().toISOString(), students: students, config: config, sessions: sessions, marks: marks, deletedIds: deletedIds, deletedSessions: deletedSessions };
+  return { app: 'متابعة الطلبة', version: 1, updatedAt: new Date().toISOString(), students: students, config: config, sessions: sessions, marks: marks, deletedIds: deletedIds, deletedSessions: deletedSessions, trash: trash };
 }
 function saveAllLocal() {
   saveData();
@@ -4058,7 +4207,16 @@ function mergeAll(remote) {
       });
     }
   }
-  if (changed) { syncConf.lastSyncAt = new Date().toISOString(); saveSyncConf(); saveDeleted(); saveDeletedSessions(); }
+  if (Array.isArray(remote.trash)) {
+    remote.trash.forEach(function(rt) {
+      if (!rt || !rt.student || rt.id == null) return;
+      var activeLocal = students.some(function(s) { return s.id === rt.id; });
+      if (activeLocal) return;
+      var exists = trash.some(function(t) { return t.id === rt.id; });
+      if (!exists) { trash.push(rt); changed = true; }
+    });
+  }
+  if (changed) { syncConf.lastSyncAt = new Date().toISOString(); saveSyncConf(); saveDeleted(); saveDeletedSessions(); saveTrash(); }
   return changed;
 }
 function findBestGist() {
