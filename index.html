@@ -330,13 +330,16 @@ tr.absent:hover td { background: #fee2e2; }
 .att-select.missing { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
 
 .notes-input {
-  width: 110px;
+  width: 240px;
+  min-width: 180px;
   padding: 5px 6px;
   border: 2px solid #e2e8f0;
   border-radius: 6px;
   font-size: 12px;
   font-family: inherit;
   text-align: right;
+  line-height: 1.4;
+  resize: vertical;
   transition: border-color 0.2s;
 }
 .notes-input:focus {
@@ -662,7 +665,7 @@ tr.absent:hover td { background: #fee2e2; }
   .section-tab { padding: 6px 12px; font-size: 12px; }
   td, th { padding: 6px 4px; font-size: 12px; }
   .grade-input, .behavior-input, .hw-input { width: 48px; }
-  .notes-input { width: 80px; }
+  .notes-input { width: 140px; min-width: 120px; }
 }
 @media print {
   @page { size: A4 portrait; margin: 1cm; }
@@ -791,7 +794,7 @@ tr.absent:hover td { background: #fee2e2; }
                 <button class="att-all absent" onclick="setAllField('homework','no','الواجب')" title="ما حدا عمل الواجب">✗</button>
               </div>
             </th>
-            <th style="width:100px">ملاحظات</th>
+            <th style="width:190px">ملاحظات</th>
             <th style="width:60px">إجراءات</th>
           </tr>
         </thead>
@@ -3084,7 +3087,7 @@ function renderTable() {
           '<button class="att-btn present' + (rec.homework === 'yes' ? '' : ' muted') + '" onclick="setHomework(' + s.id + ',\'yes\')" title="عمل الواجب">✓</button>' +
           '<button class="att-btn absent' + (rec.homework === 'no' ? '' : ' muted') + '" onclick="setHomework(' + s.id + ',\'no\')" title="ما عمل الواجب">✗</button>' +
         '</div>') + '</td>' +
-        '<td><input class="notes-input" value="' + (rec.notes || '') + '" oninput="updateLiveRec(' + s.id + ',\'notes\',this.value)" onfocus="this.select()" placeholder="..." maxlength="50"></td>' +
+        '<td><textarea class="notes-input" rows="2" maxlength="300" oninput="updateLiveRec(' + s.id + ',\'notes\',this.value)" onfocus="this.select()" placeholder="اكتب الملاحظات/المخالفات بالتفصيل...">' + escapeHtml(rec.notes || '') + '</textarea></td>' +
         '<td><div class="action-btns"><button class="btn btn-sm" style="background:#e2e8f0;color:#475569" onclick="showMoveModal(' + s.id + ',' + students.indexOf(s) + ')" title="نقل">🚚</button><button class="btn btn-danger btn-sm" onclick="deleteStudentAt(' + students.indexOf(s) + ')">✕</button></div></td>' +
       '</tr>';
     }).join('');
