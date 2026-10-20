@@ -2376,9 +2376,16 @@ function renderLevelsManager() {
         '<h4>' + l + ' <span style="font-size:12px;color:#94a3b8;font-weight:400;">(' + studentCount + ' طالب)</span></h4>' +
         '<button class="btn btn-danger btn-sm" onclick="removeLevel(\'' + safeStr(l) + '\')">✕ حذف</button>' +
       '</div>' +
-      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-        '<span style="font-size:13px;color:#475569;">الشعب: ' + secs.join(' - ') + '</span>' +
-        '<span style="display:inline-flex;align-items:center;gap:4px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<span style="font-size:13px;color:#475569;">الشعب:</span>' +
+        secs.map(function(sec) {
+          var c = students.filter(function(s) { return s.level === l && s.section === sec; }).length;
+          return '<span style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px;font-size:12px;color:#475569;">' +
+            escapeHtml(sec) + ' <span style="color:#94a3b8;">(' + c + ')</span>' +
+            '<button class="btn btn-danger btn-sm" style="padding:0 5px;font-size:11px;line-height:1.6;" onclick="removeSection(\'' + safeStr(l) + '\',\'' + safeStr(sec) + '\')" title="حذف الشعبة مع طلابها">✕</button>' +
+          '</span>';
+        }).join('') +
+        '<span style="display:inline-flex;align-items:center;gap:4px;margin-right:auto;">' +
           '<input type="number" id="secCount_' + l.replace(/\s/g,'_') + '" value="' + secs.length + '" min="1" max="15" style="width:50px;padding:4px 6px;border:2px solid #e2e8f0;border-radius:5px;font-size:12px;font-family:inherit;text-align:center;" onchange="updateSecCount(\'' + safeStr(l) + '\')">' +
           '<span style="font-size:12px;color:#94a3b8;">شعبة</span>' +
         '</span>' +
@@ -2466,6 +2473,60 @@ function updateSecCount(level) {
   }
   renderAll();
   showToast('تم تحديث عدد شعب "' + level + '" إلى ' + newCount);
+}
+
+function removeSection(level, section) {
+  var secs = getSections(level);
+  if (secs.indexOf(section) === -1) return;
+  if (secs.length <= 1) {
+    showToast('لا يمكن حذف الشعبة الأخيرة — احذف الصف كاملًا بدلًا منها', 'error');
+    return;
+  }
+  var list = students.filter(function(s) { return s.level === level && s.section === section; });
+  var msg = 'هل تريد حذف الشعبة "' + section + '" من "' + level + '"';
+  msg += list.length
+    ? ' مع طلابها (' + list.length + ' طالب)؟\nسيُحذفون من جميع السجلات والعلامات، ويمكن استعادتهم من سلة المحذوفين.'
+    : '؟';
+  if (!confirm(msg)) return;
+  list.forEach(function(s) {
+    var recs = {}, mk = {};
+    Object.keys(sessions).forEach(function(k) {
+      if (sessions[k].records && sessions[k].records[s.id]) { recs[k] = sessions[k].records[s.id]; }
+    });
+    Object.keys(marks).forEach(function(kk) {
+      if (marks[kk] && marks[kk][s.id] !== undefined) { mk[kk] = marks[kk][s.id]; }
+    });
+    trash.unshift({ id: s.id, student: { id: s.id, name: s.name, level: s.level, section: s.section, nationalId: s.nationalId || '' }, records: recs, marks: mk, deletedAt: new Date().toISOString() });
+    tombstoneId(s.id);
+  });
+  saveTrash();
+  students = students.filter(function(s) { return !(s.level === level && s.section === section); });
+  var suffix = '_' + level + '_' + section;
+  Object.keys(sessions).forEach(function(k) {
+    if (k.slice(-suffix.length) === suffix) {
+      delete sessions[k];
+      tombstoneSession(k);
+    } else if (sessions[k].records) {
+      list.forEach(function(s) { delete sessions[k].records[s.id]; });
+    }
+  });
+  saveSessions();
+  Object.keys(marks).forEach(function(kk) {
+    if (kk === level + '::' + section) { delete marks[kk]; return; }
+    if (marks[kk]) list.forEach(function(s) { delete marks[kk][s.id]; });
+  });
+  saveMarks();
+  config.levels[level] = secs.filter(function(x) { return x !== section; });
+  saveConfig();
+  saveData();
+  if (currentView === level && currentSection === section) {
+    var remain = getSections(level);
+    currentSection = remain.length ? remain[0] : 'أ';
+    saveData();
+  }
+  renderLevelsManager();
+  renderAll();
+  showToast('تم حذف الشعبة "' + section + '"' + (list.length ? ' وطلابها (' + list.length + ')' : ''));
 }
 
 // --- Student CRUD ---
